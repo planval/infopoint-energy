@@ -1,6 +1,6 @@
-# regiosuisse Tools
+# infopoint-energy Tools
 
-Welcome to the regiosuisse Tools Collection!
+Welcome to the infopoint-energy Tools Collection!
 
 This repository houses a variety of tools provided by [regiosuisse](https://regiosuisse.ch). 
 While the issue tracker is currently disabled, we encourage you to reach out to [our team](https://regiosuisse.ch/regiosuisse-team) with any questions or feedback you may have.
@@ -10,10 +10,10 @@ While the issue tracker is currently disabled, we encourage you to reach out to 
     docker compose build
     docker compose up -d
     
-    docker exec -it regiosuisse-tools_php bash -c "composer install"
-    docker exec -it regiosuisse-tools_php bash -c "php bin/console doctrine:migrations:migrate --no-interaction"
-    docker exec -it regiosuisse-tools_php bash -c "yarn install && yarn build"
-    docker exec -it regiosuisse-tools_php bash -c "php bin/console app:user:create"
+    docker exec -it infopoint-energy_php bash -c "composer install"
+    docker exec -it infopoint-energy_php bash -c "php bin/console doctrine:migrations:migrate --no-interaction"
+    docker exec -it infopoint-energy_php bash -c "yarn install && yarn build"
+    docker exec -it infopoint-energy_php bash -c "php bin/console app:user:create"
 
 ## Configuration
 

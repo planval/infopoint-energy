@@ -17,8 +17,8 @@ definitions:
           - export DOCKER_BUILDKIT=0
           - docker-compose build
           - docker-compose -f docker-compose.yml -f docker-compose.bitbucket.yml up -d
-          - docker exec regiosuisse-tools_php bash -c "bash bin/install"
-          - docker exec regiosuisse-tools_php bash -c "php bin/console app:user:create --email=info@regiosuisse.ch --password=12345678 --role=ROLE_SUPER_ADMIN"
+          - docker exec infopoint-energy_php bash -c "bash bin/install"
+          - docker exec infopoint-energy_php bash -c "php bin/console app:user:create --email=contact@bfe.admin.ch --password=12345678 --role=ROLE_SUPER_ADMIN"
           - docker-compose down -v
 
 pipelines:

@@ -31,7 +31,7 @@ const sassVariables = `
     $theme-color-2: ${env.THEME_COLOR_2};
     $theme-color-3: ${env.THEME_COLOR_3};
     $theme-color-4: ${env.THEME_COLOR_4};
-
+    $theme-color-5: ${env.THEME_COLOR_5};
 `;
 
 const embedSassVariables = `

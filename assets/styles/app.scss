@@ -107,7 +107,7 @@ textarea {
   padding: .25em .5em;
   font: inherit;
   font-size: 1em;
-  border: 1px solid $theme-color-2;
+  border: 1px solid $theme-color-5;
   line-height: 145%;
   height: auto;
 }
@@ -116,7 +116,7 @@ textarea {
   display: block;
   width: 100%;
   -webkit-appearance: none;
-  border: 1px solid $theme-color-2;
+  border: 1px solid $theme-color-5;
   border-radius: .25em;
   background: $white;
   box-sizing: border-box;
@@ -173,7 +173,7 @@ textarea {
 }
 
 label {
-  color: $theme-color-2;
+  color: $theme-color-5;
   font-weight: inherit;
   margin-bottom: .5em;
   display: flex;
@@ -185,7 +185,7 @@ label {
 }
 
 .button {
-  background: $color-2;
+  background: $white;
   color: $black;
   border-radius: .25em;
   padding: .25em 1em;
@@ -203,7 +203,9 @@ label {
   }
 
   &:hover {
-    background: $white;
+    background: $theme-color-2;
+    color: $white;
+    border-color: $theme-color-2;
     text-decoration: none;
   }
 
@@ -405,8 +407,8 @@ label {
     flex-direction: column;
     flex: 0 0 auto;
     width: 20em;
-    border-right: 1px solid $theme-color-2;
-    background: rgba($theme-color-3, .5);
+    border-right: 1px solid $color-2;
+    background: #fff;
     box-sizing: border-box;
     overflow: auto;
     transition: width .25s;
@@ -476,6 +478,7 @@ label {
           &.router-link-parent-active,
           &:hover {
             background: $theme-color-3;
+            color: $white;
           }
 
           .material-icons,
@@ -511,8 +514,8 @@ label {
             &.router-link-active,
             &.router-link-parent-active,
             &:hover {
-              background: $color-3;
-              color: $theme-color-2;
+              background: $theme-color-2;
+              color: $white;
             }
           }
         }
@@ -750,7 +753,7 @@ label {
     &-selection {
       padding: 1em;
       margin: 1em;
-      border: 1px solid $theme-color-2;
+      border: 1px solid $theme-color-4;
       background: $white;
       border-radius: .25em;
 
@@ -1191,7 +1194,7 @@ td {
 
 .tag-selector-component,
 .single-selector-component {
-  border: 1px solid $theme-color-2;
+  border: 1px solid $theme-color-5;
   border-radius: .25em;
 
   input[type=text] {

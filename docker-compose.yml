@@ -2,57 +2,57 @@ services:
 
   apache:
     build: .docker/apache
-    container_name: "regiosuisse-tools_apache"
+    container_name: "infopoint-energy_apache"
     ports:
     - '80:80'
     - '443:443'
     volumes:
     - .docker/config/vhosts:/etc/apache2/sites-enabled
-    - .:/home/wwwroot/regiosuisse-tools
+    - .:/home/wwwroot/infopoint-energy
     networks:
-    - regiosuisse-tools
+    - infopoint-energy
     depends_on:
     - php
 
   mysql:
     image: mariadb:10.3.32
-    container_name: "regiosuisse-tools_mysql"
+    container_name: "infopoint-energy_mysql"
     command: --max_allowed_packet=1073741824
     ports:
     - '3306:3306'
     volumes:
     - mysql-data:/var/lib/mysql
     networks:
-    - regiosuisse-tools
+    - infopoint-energy
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: "regiosuisse-tools"
-      MYSQL_USER: "regiosuisse-tools"
-      MYSQL_PASSWORD: "regiosuisse-tools"
+      MYSQL_DATABASE: "infopoint-energy"
+      MYSQL_USER: "infopoint-energy"
+      MYSQL_PASSWORD: "infopoint-energy"
 
   php:
     build: .docker/php
-    container_name: "regiosuisse-tools_php"
+    container_name: "infopoint-energy_php"
     volumes:
-    - .:/home/wwwroot/regiosuisse-tools
-    - php-var:/home/wwwroot/regiosuisse-tools/var
+    - .:/home/wwwroot/infopoint-energy
+    - php-var:/home/wwwroot/infopoint-energy/var
     environment:
-    - "maildev_host=regiosuisse-tools_maildev"
+    - "maildev_host=infopoint-energy_maildev"
     networks:
-    - regiosuisse-tools
+    - infopoint-energy
     depends_on:
     - maildev
     - mysql
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
-    container_name: "regiosuisse-tools_phpmyadmin"
+    container_name: "infopoint-energy_phpmyadmin"
     environment:
       PMA_HOST: mysql
       PMA_PORT: 3306
       UPLOAD_LIMIT: 30000000000
     networks:
-    - regiosuisse-tools
+    - infopoint-energy
     ports:
     - '8080:80'
     links:
@@ -60,16 +60,16 @@ services:
 
   maildev:
     image: djfarrelly/maildev
-    container_name: "regiosuisse-tools_maildev"
+    container_name: "infopoint-energy_maildev"
     command: bin/maildev --web 80 --smtp 25 --hide-extensions STARTTLS
     networks:
-    - regiosuisse-tools
+    - infopoint-energy
     ports:
     - '8001:80'
     - '25:25'
 
 networks:
-  regiosuisse-tools:
+  infopoint-energy:
     driver: bridge
 
 volumes:

@@ -5,4 +5,4 @@ services:
 
   php:
     volumes:
-    - ./var:/home/wwwroot/regiosuisse-tools/var
+    - ./var:/home/wwwroot/infopoint-energy/var

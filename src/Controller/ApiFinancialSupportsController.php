@@ -362,9 +362,10 @@ class ApiFinancialSupportsController extends AbstractController
                 __DIR__.'/../../assets/fonts/',
             ],
             'fontdata' => [
-                'helveticaneue' => [
-                    'R' => 'helveticaneue.ttf',
-                    'B' => 'helveticaneuebold.ttf',
+                'notosans' => [
+                    'R' => 'NotoSans.ttf',
+                    'B' => 'NotoSans.ttf',
+                    'I' => 'NotoSans-Italic.ttf',
                 ]
             ],
             'margin_left' => 20,
@@ -373,7 +374,7 @@ class ApiFinancialSupportsController extends AbstractController
             'margin_bottom' => 25,
             'margin_header' => 10,
             'margin_footer' => 10,
-            'default_font' => 'helveticaneue',
+            'default_font' => 'notosans',
         ]);
 
         $mpdf->SetTitle(PvTrans::translate($financialSupport, 'name', $request->getLocale()));

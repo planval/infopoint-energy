@@ -1,1 +1,4 @@
 *.ttf
+
+!NotoSans-Italic.ttf
+!NotoSans.ttf

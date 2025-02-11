@@ -65,6 +65,10 @@ class FinancialSupport
     #[Groups(['financial_support'])]
     private $application;
 
+    #[ORM\Column(name: 'application_tips', type: 'text', nullable: true)]
+    #[Groups(['financial_support'])]
+    private $applicationTips;
+
     #[ORM\Column(name: 'financing_ratio', type: 'text', nullable: true)]
     #[Groups(['financial_support'])]
     private $financingRatio;
@@ -204,6 +208,17 @@ class FinancialSupport
         new OA\Property(property: 'it', type: 'object'),
     ], type: 'object')]
     private $translations = [];
+
+    #[ORM\Column(name: 'appointments', type: 'json', nullable: true)]
+    #[Groups(['financial_support'])]
+    private $appointments = [];
+
+    #[ORM\Column(name: 'search_index', type: 'text', nullable: true)]
+    private $searchIndex;
+
+    #[ORM\Column(name: 'assignment', type: 'text', nullable: true)]
+    #[Groups(['financial_support'])]
+    private $assignment;
 
     public function __construct()
     {
@@ -488,6 +503,30 @@ class FinancialSupport
     public function getApplication()
     {
         return $this->application;
+    }
+
+    /**
+     * Set applicationTips
+     *
+     * @param string $applicationTips
+     *
+     * @return FinancialSupport
+     */
+    public function setApplicationTips($applicationTips)
+    {
+        $this->applicationTips = $applicationTips;
+
+        return $this;
+    }
+
+    /**
+     * Get applicationTips
+     *
+     * @return string
+     */
+    public function getApplicationTips()
+    {
+        return $this->applicationTips;
     }
 
     /**
@@ -981,6 +1020,66 @@ class FinancialSupport
     public function getTranslations()
     {
         return $this->translations;
+    }
+
+    /**
+     * @return array
+     */
+    public function getAppointments()
+    {
+        return $this->appointments;
+    }
+
+    /**
+     * @param array $appointments
+     * @return $this
+     */
+    public function setAppointments($appointments)
+    {
+        $this->appointments = $appointments;
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getSearchIndex()
+    {
+        return $this->searchIndex;
+    }
+
+    /**
+     * @param string $searchIndex
+     * @return $this
+     */
+    public function setSearchIndex($searchIndex)
+    {
+        $this->searchIndex = $searchIndex;
+        return $this;
+    }
+
+    /**
+     * Set assignment
+     *
+     * @param string $assignment
+     *
+     * @return FinancialSupport
+     */
+    public function setAssignment($assignment)
+    {
+        $this->assignment = $assignment;
+
+        return $this;
+    }
+
+    /**
+     * Get assignment
+     *
+     * @return string
+     */
+    public function getAssignment()
+    {
+        return $this->assignment;
     }
 
 }

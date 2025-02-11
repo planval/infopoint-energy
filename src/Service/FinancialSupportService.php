@@ -9,6 +9,7 @@ use App\Entity\Instrument;
 use App\Entity\ProjectType;
 use App\Entity\State;
 use App\Entity\Topic;
+use App\Util\PvTrans;
 use Doctrine\Common\Collections\ArrayCollection;
 use App\Entity\FinancialSupport;
 use Doctrine\ORM\EntityManagerInterface;
@@ -47,6 +48,7 @@ class FinancialSupportService {
             'additionalInformation',
             'policies',
             'application',
+            'applicationTips',
             'inclusionCriteria',
             'exclusionCriteria',
             'financingRatio',
@@ -64,6 +66,8 @@ class FinancialSupportService {
             'contacts',
             'logo',
             'translations',
+            'appointments',
+            'assignment',
         ])) !== true) {
             return $errors;
         }
@@ -78,6 +82,7 @@ class FinancialSupportService {
         $financialSupport->setCreatedAt(new \DateTime());
 
         $financialSupport = $this->applyFinancialSupportPayload($payload, $financialSupport);
+        $financialSupport->setSearchIndex($this->buildSearchIndex($financialSupport));
 
         $this->em->persist($financialSupport);
         $this->em->flush();
@@ -90,6 +95,7 @@ class FinancialSupportService {
         $financialSupport->setUpdatedAt(new \DateTime());
 
         $financialSupport = $this->applyFinancialSupportPayload($payload, $financialSupport);
+        $financialSupport->setSearchIndex($this->buildSearchIndex($financialSupport));
 
         $this->em->persist($financialSupport);
         $this->em->flush();
@@ -105,6 +111,57 @@ class FinancialSupportService {
         return $financialSupport;
     }
 
+    public function buildSearchIndex(FinancialSupport $financialSupport): string
+    {
+        $searchIndex = [];
+
+        foreach(['de', 'fr', 'it'] as $locale) {
+            $searchIndex[] = PvTrans::translate($financialSupport, 'name', $locale);
+            $searchIndex[] = PvTrans::translate($financialSupport, 'description', $locale);
+            $searchIndex[] = html_entity_decode(strip_tags(PvTrans::translate($financialSupport, 'description', $locale)));
+            $searchIndex[] = PvTrans::translate($financialSupport, 'additionalInformation', $locale);
+            $searchIndex[] = PvTrans::translate($financialSupport, 'inclusionCriteria', $locale);
+            $searchIndex[] = PvTrans::translate($financialSupport, 'exclusionCriteria', $locale);
+            $searchIndex[] = PvTrans::translate($financialSupport, 'application', $locale);
+            $searchIndex[] = PvTrans::translate($financialSupport, 'financingRatio', $locale);
+            $searchIndex[] = PvTrans::translate($financialSupport, 'res', $locale);
+
+            foreach(PvTrans::translate($financialSupport, 'contacts', $locale) as $contact) {
+                $searchIndex[] = implode(', ', array_filter($contact));
+            }
+
+            foreach($financialSupport->getAuthorities() as $e) {
+                $searchIndex[] = PvTrans::translate($e, 'name', $locale);
+            }
+
+            foreach($financialSupport->getStates() as $e) {
+                $searchIndex[] = PvTrans::translate($e, 'name', $locale);
+            }
+
+            foreach($financialSupport->getBeneficiaries() as $e) {
+                $searchIndex[] = PvTrans::translate($e, 'name', $locale);
+            }
+
+            foreach($financialSupport->getTopics() as $e) {
+                $searchIndex[] = PvTrans::translate($e, 'name', $locale);
+            }
+
+            foreach($financialSupport->getProjectTypes() as $e) {
+                $searchIndex[] = PvTrans::translate($e, 'name', $locale);
+            }
+
+            foreach($financialSupport->getInstruments() as $e) {
+                $searchIndex[] = PvTrans::translate($e, 'name', $locale);
+            }
+
+            foreach($financialSupport->getGeographicRegions() as $e) {
+                $searchIndex[] = PvTrans::translate($e, 'name', $locale);
+            }
+        }
+
+        return implode(PHP_EOL, array_unique(array_filter($searchIndex)));
+    }
+
     public function applyFinancialSupportPayload($payload, FinancialSupport $financialSupport)
     {
         $financialSupport
@@ -116,6 +173,7 @@ class FinancialSupportService {
             ->setAdditionalInformation($payload['additionalInformation'])
             ->setPolicies($payload['policies'])
             ->setApplication($payload['application'])
+            ->setApplicationTips($payload['applicationTips'])
             ->setInclusionCriteria($payload['inclusionCriteria'])
             ->setExclusionCriteria($payload['exclusionCriteria'])
             ->setFinancingRatio($payload['financingRatio'])
@@ -132,6 +190,8 @@ class FinancialSupportService {
             ->setInstruments(new ArrayCollection())
             ->setGeographicRegions(new ArrayCollection())
             ->setTranslations($payload['translations'] ?: [])
+            ->setAppointments($payload['appointments'] ?: [])
+            ->setAssignment($payload['assignment'] ?: null);
         ;
 
         foreach($payload['authorities'] as $item) {

@@ -4,12 +4,12 @@ Agenda: 'Agenda'
 Aus- und Weiterbildungsangebote: 'Offres de formation de base et continue'
 Kurzbeschrieb: 'Brève description'
 Teilnahmekriterien: 'Critères de participation'
-Ausschlusskriterien: 'Critères d’exclusion'
+Ausschlusskriterien: 'Critères d''exclusion'
 Finanzierung: 'Financement'
 Gesuchstellung: 'Requête'
 Kontakt: 'Contact'
-'Mehr Informationen': 'Plus d’informations'
-Förderstelle: 'Organisme d’encouragement'
+'Mehr Informationen': 'Plus d''informations'
+Förderstelle: 'Organisme d''encouragement'
 Begünstigte: 'Bénéficiaires'
 Thema: 'Thème'
 Projekttyp: 'Type de projet'
@@ -39,17 +39,17 @@ Projektkosten: 'Coût'
 'Einträge werden geladen...': 'Einträge werden geladen...'
 Nur regiosuisse-Veranstaltungen anzeigen: 'N''indiquer que les manifestations regiosuisse'
 Vergangene Veranstaltungen anzeigen: 'Indiquer les manifestations passées'
-Zur Anmeldung: 'Vers l’inscription'
+Zur Anmeldung: 'Vers l''inscription'
 In meine Agenda eintragen: 'Inscrire dans mon agenda'
 Pensum: 'Charge de travail'
-Stellenmarkt: 'Marché de l’emploi'
+Stellenmarkt: 'Marché de l''emploi'
 Ort: 'Lieu'
 'Gemeinde': 'Commune'
 'Region': 'Région'
 'Nach Gemeinde suchen': 'Chercher une commune'
 'NRP-Regionen': 'Régions NPR'
 'Überkantonale Programme': 'Programmes supracantonaux'
-'Regionale Innovationssysteme (RIS)': 'Systèmes régionaux d’innovation (RIS)'
+'Regionale Innovationssysteme (RIS)': 'Systèmes régionaux d''innovation (RIS)'
 'Kantonale NRP-Fachstellen': 'Services cantonaux de la NPR'
 'Energie-Regionen': 'Régions-Energie'
 'Mehreren Regionen zugehörig': 'Appartenant à plusieurs régions'
@@ -91,15 +91,15 @@ form.city: "Ville"
 form.country: "Pays"
 form.language: "Langue"
 form.description: "Description"
-form.companyName: "Nom de l'entreprise"
+form.companyName: "Nom de l''entreprise"
 form.specification: "Spécification"
 form.parent: "Parent"
 form.save: "Sauvegarder"
 form.verify_personal_info: "Informations personnelles"
 form.verify_contact_info: "Informations de contact"
 form.verify_address: "Adresse"
-form.verify_company_info: "Informations sur l'entreprise"
-form.verify_more_info: "Plus d'informations"
+form.verify_company_info: "Informations sur l''entreprise"
+form.verify_more_info: "Plus d''informations"
 form.gender_male: "Masculin"
 form.gender_female: "Féminin"
 form.gender_diverse: "Divers"
@@ -199,3 +199,20 @@ event.success:
     created: 'L''événement a été soumis avec succès.'
 event.location: 'Lieu de déroulement'
 event.location.help: 'Où se trouve le lieu d''exécution? (Suisse alémanique, Suisse romande, Suisse italienne, En ligne, International)'
+
+# Appointment translations
+Termine: 'Rendez-vous'
+Termin hinzufügen: 'Ajouter un rendez-vous'
+Termin entfernen: 'Supprimer le rendez-vous'
+Alle Termine: 'Tous les rendez-vous'
+Gestern: 'Hier'
+Heute: 'Aujourd''hui'
+Morgen: 'Demain'
+Diese Woche: 'Cette semaine'
+Dieser Monat: 'Ce mois'
+Nächster Monat: 'Mois prochain'
+Datum: 'Date'
+Beantragung: 'Demande'
+Themenschwerpunkt: 'Thème'
+Innovationsphasen: 'Phases d''innovation'
+Fördergebiet: 'Zone de financement'

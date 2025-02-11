@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Instrument;
 use Doctrine\ORM\EntityManagerInterface;
 use Nelmio\ApiDocBundle\Annotation\Model;
+use Nelmio\ApiDocBundle\Annotation\Security;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Routing\Annotation\Route;
@@ -59,5 +60,54 @@ class ApiInstrumentsController extends AbstractController
 
         return $this->json($result);
     }
+
+    #[OA\Tag(name: 'Instruments')]
+    #[Route(path: '/create', name: 'create', methods: ['POST'])]
+    #[Security(name: 'cookieAuth')]
+    #[OA\RequestBody(
+        description: 'Create a new instrument',
+        required: true,
+        content: new OA\JsonContent(
+            type: 'object',
+            properties: [
+                new OA\Property(property: 'name', type: 'string', description: 'The name of the instrument'),
+                new OA\Property(property: 'context', type: 'string', description: 'The context of the instrument')
+            ]
+        )
+    )]
+    #[OA\Response(
+        response: 200,
+        description: 'Creates a new instrument',
+        content: new OA\JsonContent(
+            ref: new Model(type: Instrument::class, groups: ['id', 'instrument'])
+        )
+    )]
+    public function create(Request $request, EntityManagerInterface $em, NormalizerInterface $normalizer): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        
+        // Get max position
+        $maxPosition = $em->createQueryBuilder()
+            ->select('MAX(i.position)')
+            ->from(Instrument::class, 'i')
+            ->getQuery()
+            ->getSingleScalarResult();
+        
+        $instrument = new Instrument();
+        $instrument->setName($data['name']);
+        $instrument->setIsPublic(true);
+        $instrument->setCreatedAt(new \DateTime());
+        $instrument->setUpdatedAt(new \DateTime());
+        $instrument->setContext($data['context'] ? $data['context'] : 'financial-support');
+        $instrument->setPosition($maxPosition ? $maxPosition + 1 : 1);
+        $instrument->setTranslations(['fr' => new \stdClass(), 'it' => new \stdClass()]);
+        $instrument->setSynonyms(new \stdClass());
+        
+        $em->persist($instrument);
+        $em->flush();
     
+        $result = $normalizer->normalize($instrument, null, ['groups' => ['id', 'instrument']]);
+    
+        return $this->json($result);
+    }
 }

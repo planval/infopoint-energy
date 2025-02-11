@@ -32,6 +32,7 @@ const actions = {
         return api.financialSupports.getFiltered(params).then((response) => {
             commit('loaders/hideLoader', 'financialSupports', { root: true });
             commit('setFiltered', response.data);
+            return response.data;
         });
     },
 

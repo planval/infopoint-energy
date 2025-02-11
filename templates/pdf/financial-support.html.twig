@@ -70,6 +70,8 @@
 
         <div style="width: 100%;">
             <div style="float: left; width: 60%;">
+
+
                 <h2>{{ 'Kurzbeschrieb' | trans }}</h2>
                 {{ pv_trans(financialSupport, 'additionalInformation', app.request.locale) | raw }}
 
@@ -82,8 +84,11 @@
                 <h2>{{ 'Finanzierung' | trans }}</h2>
                 {{ pv_trans(financialSupport, 'financingRatio', app.request.locale) | raw }}
 
-                <h2>{{ 'Gesuchstellung' |trans }}</h2>
+                <h2>{{ 'Beantragung' |trans }}</h2>
                 {{ pv_trans(financialSupport, 'application', app.request.locale) | raw }}
+
+                <h2>{{ 'Tipps zur Beantragung' |trans }}</h2>
+                {{ pv_trans(financialSupport, 'applicationTips', app.request.locale) | raw }}
 
                 <h2>{{ 'Kontakt' |trans }}</h2>
                 {% for contact in pv_trans(financialSupport, 'contacts', app.request.locale)|default([]) %}
@@ -133,16 +138,69 @@
                     {% endif %}
 
                 {% endfor %}
+
+                <h2>{{ 'Projekte' |trans }}</h2>
+                <div class="list">
+                    {% for link in pv_trans(financialSupport, 'links', app.request.locale)|default([]) %}
+                        <div class="list-item">
+                            {{ link.label }}<br>
+                            <a href="{{ link.value }}" target="_blank">{{ link.value }}</a>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                {% if financialSupport.appointments|default([]) is not empty or pv_trans(financialSupport, 'appointments', app.request.locale)|default([]) is not empty %}
+                    <h2>{{ 'Termine' |trans }}</h2>
+                    <div class="list">
+                        {% for appointment in financialSupport.appointments|default([]) %}
+                            <div class="list-item">
+                                {{ appointment.date|date('d.m.Y') }}
+                                {% if appointment.description|default %} 
+                                    - {{ appointment.description|raw }}
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                        {% for appointment in pv_trans(financialSupport, 'appointments', app.request.locale)|default([]) %}
+                            <div class="list-item">
+                                {{ appointment.date|date('d.m.Y') }}
+                                {% if appointment.description|default %} 
+                                    - {{ appointment.description|raw }}
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                {% if pv_trans(financialSupport, 'res', app.request.locale) %}
+                    <h2>{{ 'Mehr Informationen' | trans }}</h2>
+                    {{ pv_trans(financialSupport, 'res', app.request.locale) | raw }}
+                {% endif %}
             </div>
 
             <div style="float: right; width: 30%;">
 
-                <h2>{{ 'Mehr Informationen' |trans }}</h2>
-                <div class="list">
-                    {% for link in pv_trans(financialSupport, 'links', app.request.locale)|default([]) %}
-                        <div class="list-item"><a href="{{ link.value }}" target="_blank">{{ link.label }}</a></div>
-                    {% endfor %}
-                </div>
+                {% if financialSupport.startDate or financialSupport.endDate %}
+                    <h2>{{ 'Laufzeit' |trans }}</h2>
+                    <div class="list">
+                        {% if financialSupport.startDate %}
+                            <div class="list-item">
+                                {{ 'Start' |trans }}: {{ financialSupport.startDate|date('d.m.Y') }}
+                            </div>
+                        {% endif %}
+                        {% if financialSupport.endDate %}
+                            <div class="list-item">
+                                {{ 'Ende' |trans }}: {{ financialSupport.endDate|date('d.m.Y') }}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+
+                {% if financialSupport.assignment %}
+                    <h2>{{ 'Zuteilung' |trans }}</h2>
+                    <div class="list">
+                        <div class="list-item">{{ financialSupport.assignment }}</div>
+                    </div>
+                {% endif %}
 
                 <h2>{{ 'Förderstelle' |trans }}</h2>
                 <div class="list">
@@ -151,7 +209,6 @@
                     {% endfor %}
                 </div>
 
-
                 <h2>{{ 'Begünstigte' |trans }}</h2>
                 <div class="list">
                     {% for beneficiary in financialSupport.beneficiaries %}
@@ -159,14 +216,14 @@
                     {% endfor %}
                 </div>
 
-                <h2>{{ 'Thema' |trans }}</h2>
+                <h2>{{ 'Themenschwerpunkt' |trans }}</h2>
                 <div class="list">
                     {% for topic in financialSupport.topics %}
                         <div class="list-item">{{ pv_trans(topic, 'name', app.request.locale) }}</div>
                     {% endfor %}
                 </div>
 
-                <h2>{{ 'Projekttyp' |trans }}</h2>
+                <h2>{{ 'Innovationsphasen' |trans }}</h2>
                 <div class="list">
                     {% for projectType in financialSupport.projectTypes %}
                         <div class="list-item">{{ pv_trans(projectType, 'name', app.request.locale) }}</div>
@@ -180,7 +237,7 @@
                     {% endfor %}
                 </div>
 
-                <h2>{{ 'Geographische Region' |trans }}</h2>
+                <h2>{{ 'Fördergebiet' |trans }}</h2>
                 <div class="list">
                     {% for geographicRegion in financialSupport.geographicRegions %}
                         <div class="list-item">{{ pv_trans(geographicRegion, 'name', app.request.locale) }}</div>

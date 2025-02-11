@@ -9,8 +9,7 @@ use Mpdf\Mpdf;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Twig\Environment;
-use ZipArchive;
-use Imagick;
+
 
 class FinancialSupportExportService
 {
@@ -56,7 +55,7 @@ class FinancialSupportExportService
         }
     }
 
-    private function addFolderToZip(ZipArchive $zip, string $folderPath, string $zipFolder): void
+    private function addFolderToZip(\ZipArchive $zip, string $folderPath, string $zipFolder): void
     {
         $files = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($folderPath),
@@ -117,9 +116,9 @@ class FinancialSupportExportService
             }
 
             $zipPath = $this->exportDir . '.zip';
-            $zip = new ZipArchive();
+            $zip = new \ZipArchive();
 
-            if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
                 throw new \RuntimeException('Could not create ZIP file');
             }
 

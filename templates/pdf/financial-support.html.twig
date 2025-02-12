@@ -13,7 +13,7 @@
 
             h1 {
                 font-size: 38px;
-                color: #B4BE00;
+                color: #DC0018;
             }
 
             h2 {
@@ -58,9 +58,12 @@
         <h1>{{ pv_trans(financialSupport, 'name', app.request.locale) }}</h1>
 
         <div style="width: 100%;">
+            {% set description = pv_trans(financialSupport, 'description', app.request.locale) %}
+            {% if description|trim is not empty %}
             <div style="float: left; width: 60%;">
-                {{ pv_trans(financialSupport, 'description', app.request.locale) | raw }}
+                {{ description|raw }}
             </div>
+            {% endif %}
             <div style="float: right; width: 30%;">
                 {% if logo %}
                     <img style="width: 100%;margin-top:5px" src="{{ logo }}" alt="Logo">
@@ -71,88 +74,117 @@
         <div style="width: 100%;">
             <div style="float: left; width: 60%;">
 
+                {% set additionalInfo = pv_trans(financialSupport, 'additionalInformation', app.request.locale) %}
+                {% if additionalInfo|trim is not empty %}
+                    <h2>{{ 'Kurzbeschrieb' | trans }}</h2>
+                    {{ additionalInfo|raw }}
+                {% endif %}
 
-                <h2>{{ 'Kurzbeschrieb' | trans }}</h2>
-                {{ pv_trans(financialSupport, 'additionalInformation', app.request.locale) | raw }}
+                {% set inclusionCriteria = pv_trans(financialSupport, 'inclusionCriteria', app.request.locale) %}
+                {% if inclusionCriteria|trim is not empty %}
+                    <h2>{{ 'Teilnahmekriterien' | trans }}</h2>
+                    {{ inclusionCriteria|raw }}
+                {% endif %}
 
-                <h2>{{ 'Teilnahmekriterien' | trans }}</h2>
-                {{ pv_trans(financialSupport, 'inclusionCriteria', app.request.locale) | raw }}
+                {% set exclusionCriteria = pv_trans(financialSupport, 'exclusionCriteria', app.request.locale) %}
+                {% if exclusionCriteria|trim is not empty %}
+                    <h2>{{ 'Ausschlusskriterien' | trans }}</h2>
+                    {{ exclusionCriteria|raw }}
+                {% endif %}
 
-                <h2>{{ 'Ausschlusskriterien' | trans }}</h2>
-                {{ pv_trans(financialSupport, 'exclusionCriteria', app.request.locale) | raw }}
+                {% set financingRatio = pv_trans(financialSupport, 'financingRatio', app.request.locale) %}
+                {% if financingRatio|trim is not empty %}
+                    <h2>{{ 'Finanzierung' | trans }}</h2>
+                    {{ financingRatio|raw }}
+                {% endif %}
 
-                <h2>{{ 'Finanzierung' | trans }}</h2>
-                {{ pv_trans(financialSupport, 'financingRatio', app.request.locale) | raw }}
+                {% set application = pv_trans(financialSupport, 'application', app.request.locale) %}
+                {% if application|trim is not empty %}
+                    <h2>{{ 'Beantragung' |trans }}</h2>
+                    {{ application|raw }}
+                {% endif %}
 
-                <h2>{{ 'Beantragung' |trans }}</h2>
-                {{ pv_trans(financialSupport, 'application', app.request.locale) | raw }}
+                {% set applicationTips = pv_trans(financialSupport, 'applicationTips', app.request.locale) %}
+                {% if applicationTips|trim is not empty %}
+                    <h2>{{ 'Tipps zur Beantragung' |trans }}</h2>
+                    {{ applicationTips|raw }}
+                {% endif %}
 
-                <h2>{{ 'Tipps zur Beantragung' |trans }}</h2>
-                {{ pv_trans(financialSupport, 'applicationTips', app.request.locale) | raw }}
-
-                <h2>{{ 'Kontakt' |trans }}</h2>
-                {% for contact in pv_trans(financialSupport, 'contacts', app.request.locale)|default([]) %}
-
-                    {% if loop.index % 2 == 0 %}
-                        <div style="float: right; width: 45%;">
-                    {% else %}
-                        <div>
-                        <div style="float: left; width: 45%;">
-                    {% endif %}
-
-                    <h3>{{ contact.name|default }}</h3>
-                    <p>
-                        {% if contact.firstName|default and contact.lastName|default %}
-                            {{ contact.firstName }} {{ contact.lastName }}<br>
+                {% set contacts = pv_trans(financialSupport, 'contacts', app.request.locale)|default([]) %}
+                {% if contacts is not empty %}
+                    <h2>{{ 'Kontakt' |trans }}</h2>
+                    {% for contact in contacts %}
+                        {% if loop.index % 2 == 0 %}
+                            <div style="float: right; width: 45%;">
+                        {% else %}
+                            <div>
+                            <div style="float: left; width: 45%;">
                         {% endif %}
-                        {% if contact.role|default %}
-                            {{ contact.role }}<br>
-                        {% endif %}
-                        {% if contact.street|default %}
-                            {{ contact.street }}<br/>
-                        {% endif %}
-                        {% if contact.zipCode|default and contact.city|default %}
-                            {{ contact.zipCode }} {{ contact.city }}
-                        {% endif %}
-                    </p>
-                    {% if contact.email|default or contact.phone|default or contact.web|default %}
-                        <p>
-                            {% if contact.email|default %}
-                                {{ contact.email }}<br/>
-                            {% endif %}
-                            {% if contact.phone|default %}
-                                {{ contact.phone }}<br/>
-                            {% endif %}
-                            {% if contact.web|default %}
-                                {{ contact.web }}
-                            {% endif %}
-                        </p>
-                    {% endif %}
 
-                    </div>
+                        {% if contact.name|default %}
+                            <h3>{{ contact.name }}</h3>
+                        {% endif %}
+                        
+                        {% if contact.firstName|default or contact.lastName|default or contact.role|default or contact.street|default or (contact.zipCode|default and contact.city|default) %}
+                            <p>
+                                {% if contact.firstName|default and contact.lastName|default %}
+                                    {{ contact.firstName }} {{ contact.lastName }}<br>
+                                {% endif %}
+                                {% if contact.role|default %}
+                                    {{ contact.role }}<br>
+                                {% endif %}
+                                {% if contact.street|default %}
+                                    {{ contact.street }}<br/>
+                                {% endif %}
+                                {% if contact.zipCode|default and contact.city|default %}
+                                    {{ contact.zipCode }} {{ contact.city }}
+                                {% endif %}
+                            </p>
+                        {% endif %}
 
-                    {% if loop.last %}
+                        {% if contact.email|default or contact.phone|default or contact.web|default %}
+                            <p>
+                                {% if contact.email|default %}
+                                    {{ contact.email }}<br/>
+                                {% endif %}
+                                {% if contact.phone|default %}
+                                    {{ contact.phone }}<br/>
+                                {% endif %}
+                                {% if contact.web|default %}
+                                    {{ contact.web }}
+                                {% endif %}
+                            </p>
+                        {% endif %}
+
                         </div>
-                    {% elseif loop.index % 2 == 0 %}
-                        </div>
-                    {% endif %}
 
-                {% endfor %}
-
-                <h2>{{ 'Projekte' |trans }}</h2>
-                <div class="list">
-                    {% for link in pv_trans(financialSupport, 'links', app.request.locale)|default([]) %}
-                        <div class="list-item">
-                            {{ link.label }}<br>
-                            <a href="{{ link.value }}" target="_blank">{{ link.value }}</a>
-                        </div>
+                        {% if loop.last %}
+                            </div>
+                        {% elseif loop.index % 2 == 0 %}
+                            </div>
+                        {% endif %}
                     {% endfor %}
-                </div>
+                {% endif %}
 
-                {% if financialSupport.appointments|default([]) is not empty or pv_trans(financialSupport, 'appointments', app.request.locale)|default([]) is not empty %}
+                {% set links = pv_trans(financialSupport, 'links', app.request.locale)|default([]) %}
+                {% if links is not empty %}
+                    <h2>{{ 'Projekte' |trans }}</h2>
+                    <div class="list">
+                        {% for link in links %}
+                            <div class="list-item">
+                                {{ link.label }}<br>
+                                <a href="{{ link.value }}" target="_blank">{{ link.value }}</a>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                {% set appointments = financialSupport.appointments|default([]) %}
+                {% set translatedAppointments = pv_trans(financialSupport, 'appointments', app.request.locale)|default([]) %}
+                {% if appointments is not empty or translatedAppointments is not empty %}
                     <h2>{{ 'Termine' |trans }}</h2>
                     <div class="list">
-                        {% for appointment in financialSupport.appointments|default([]) %}
+                        {% for appointment in appointments %}
                             <div class="list-item">
                                 {{ appointment.date|date('d.m.Y') }}
                                 {% if appointment.description|default %} 
@@ -160,7 +192,7 @@
                                 {% endif %}
                             </div>
                         {% endfor %}
-                        {% for appointment in pv_trans(financialSupport, 'appointments', app.request.locale)|default([]) %}
+                        {% for appointment in translatedAppointments %}
                             <div class="list-item">
                                 {{ appointment.date|date('d.m.Y') }}
                                 {% if appointment.description|default %} 
@@ -171,14 +203,14 @@
                     </div>
                 {% endif %}
 
-                {% if pv_trans(financialSupport, 'res', app.request.locale) %}
+                {% set res = pv_trans(financialSupport, 'res', app.request.locale) %}
+                {% if res|trim is not empty %}
                     <h2>{{ 'Mehr Informationen' | trans }}</h2>
-                    {{ pv_trans(financialSupport, 'res', app.request.locale) | raw }}
+                    {{ res|raw }}
                 {% endif %}
             </div>
 
             <div style="float: right; width: 30%;">
-
                 {% if financialSupport.startDate or financialSupport.endDate %}
                     <h2>{{ 'Laufzeit' |trans }}</h2>
                     <div class="list">
@@ -202,52 +234,60 @@
                     </div>
                 {% endif %}
 
-                <h2>{{ 'Förderstelle' |trans }}</h2>
-                <div class="list">
-                    {% for authority in financialSupport.authorities %}
-                        <div class="list-item">{{ pv_trans(authority, 'name', app.request.locale) }}</div>
-                    {% endfor %}
-                </div>
+                {% if financialSupport.authorities is not empty %}
+                    <h2>{{ 'Förderstelle' |trans }}</h2>
+                    <div class="list">
+                        {% for authority in financialSupport.authorities %}
+                            <div class="list-item">{{ pv_trans(authority, 'name', app.request.locale) }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
 
-                <h2>{{ 'Begünstigte' |trans }}</h2>
-                <div class="list">
-                    {% for beneficiary in financialSupport.beneficiaries %}
-                        <div class="list-item">{{ pv_trans(beneficiary, 'name', app.request.locale) }}</div>
-                    {% endfor %}
-                </div>
+                {% if financialSupport.beneficiaries is not empty %}
+                    <h2>{{ 'Begünstigte' |trans }}</h2>
+                    <div class="list">
+                        {% for beneficiary in financialSupport.beneficiaries %}
+                            <div class="list-item">{{ pv_trans(beneficiary, 'name', app.request.locale) }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
 
-                <h2>{{ 'Themenschwerpunkt' |trans }}</h2>
-                <div class="list">
-                    {% for topic in financialSupport.topics %}
-                        <div class="list-item">{{ pv_trans(topic, 'name', app.request.locale) }}</div>
-                    {% endfor %}
-                </div>
+                {% if financialSupport.topics is not empty %}
+                    <h2>{{ 'Themenschwerpunkt' |trans }}</h2>
+                    <div class="list">
+                        {% for topic in financialSupport.topics %}
+                            <div class="list-item">{{ pv_trans(topic, 'name', app.request.locale) }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
 
-                <h2>{{ 'Innovationsphasen' |trans }}</h2>
-                <div class="list">
-                    {% for projectType in financialSupport.projectTypes %}
-                        <div class="list-item">{{ pv_trans(projectType, 'name', app.request.locale) }}</div>
-                    {% endfor %}
-                </div>
+                {% if financialSupport.projectTypes is not empty %}
+                    <h2>{{ 'Innovationsphasen' |trans }}</h2>
+                    <div class="list">
+                        {% for projectType in financialSupport.projectTypes %}
+                            <div class="list-item">{{ pv_trans(projectType, 'name', app.request.locale) }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
 
-                <h2>{{ 'Unterstützungsarten' |trans }}</h2>
-                <div class="list">
-                    {% for instrument in financialSupport.instruments %}
-                        <div class="list-item">{{ pv_trans(instrument, 'name', app.request.locale) }}</div>
-                    {% endfor %}
-                </div>
+                {% if financialSupport.instruments is not empty %}
+                    <h2>{{ 'Unterstützungsarten' |trans }}</h2>
+                    <div class="list">
+                        {% for instrument in financialSupport.instruments %}
+                            <div class="list-item">{{ pv_trans(instrument, 'name', app.request.locale) }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
 
-                <h2>{{ 'Fördergebiet' |trans }}</h2>
-                <div class="list">
-                    {% for geographicRegion in financialSupport.geographicRegions %}
-                        <div class="list-item">{{ pv_trans(geographicRegion, 'name', app.request.locale) }}</div>
-                    {% endfor %}
-                </div>
-
+                {% if financialSupport.geographicRegions is not empty %}
+                    <h2>{{ 'Fördergebiet' |trans }}</h2>
+                    <div class="list">
+                        {% for geographicRegion in financialSupport.geographicRegions %}
+                            <div class="list-item">{{ pv_trans(geographicRegion, 'name', app.request.locale) }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
             </div>
-
         </div>
-
     </body>
-
 </html>

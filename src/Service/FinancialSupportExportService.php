@@ -217,14 +217,15 @@ class FinancialSupportExportService
                 $convertHtmlListToBullets = function($html) {
                     if (!$html) return '';
                     // Remove <p> tags but keep line breaks
-                    $text = str_replace(['<p>', '</p>'], '', $html);
-                    // Convert <ul> and <li> to bullet points
-                    $text = preg_replace('/<ul[^>]*>/', "\n", $text);
-                    $text = preg_replace('/<li[^>]*>/', '• ', $text);
-                    $text = preg_replace('/<\/li>/', "\n", $text);
-                    $text = preg_replace('/<\/ul>/', "\n", $text);
-                    // Clean up extra newlines and spaces
-                    $text = trim(preg_replace('/\n\s*\n/', "\n\n", $text));
+                    // $text = str_replace(['<p>', '</p>'], '', $html);
+                    $text = $html;
+                    // // Convert <ul> and <li> to bullet points
+                    // $text = preg_replace('/<ul[^>]*>/', "\n", $text);
+                    // $text = preg_replace('/<li[^>]*>/', '• ', $text);
+                    // $text = preg_replace('/<\/li>/', "\n", $text);
+                    // $text = preg_replace('/<\/ul>/', "\n", $text);
+                    // // Clean up extra newlines and spaces
+                    // $text = trim(preg_replace('/\n\s*\n/', "\n\n", $text));
                     return $text;
                 };
 

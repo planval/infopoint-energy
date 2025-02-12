@@ -31,7 +31,7 @@
             <img v-else :src="spinnerGif" alt="">
 
             <div class="image-selector-component-item-remove">
-                <span class="material-icons error" @click="item = null; $emit('changed', item)" v-if="!readonly">cancel</span>
+                <span class="material-icons error" @click="$emit('changed', null)" v-if="!readonly">cancel</span>
             </div>
 
         </div>
@@ -96,7 +96,7 @@
                             return alert('Die ausgewählte Datei "'+file.name+'" überschreitet das Uploadlimit von 20 MB.');
                         }
 
-                        if(!['image/jpeg', 'image/gif'].includes(file.type)) {
+                        if(!['image/jpeg', 'image/gif', 'image/png', 'image/svg+xml'].includes(file.type)) {
                             return alert('Der Dateityp "'+file.type+'" von "'+file.name+'" ist nicht erlaubt.');
                         }
 

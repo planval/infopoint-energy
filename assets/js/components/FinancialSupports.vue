@@ -4,7 +4,7 @@
 
         <div class="financial-supports-component-title">
 
-            <h2>Finanzhilfen</h2>
+            <h2>Förderhilfen</h2>
 
             <transition name="fade" mode="out-in">
                 <div class="loading-indicator" v-if="isLoading('financialSupports')"></div>

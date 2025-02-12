@@ -217,7 +217,7 @@ export default {
 }
 
 .tag-selector-component-selection-tag {
-  background-color: var(--theme-color-2);
+  background-color: #E53940;
   color: white;
   padding: 5px 10px;
   border-radius: 0.25em;
@@ -238,7 +238,7 @@ export default {
 
 .tag-selector-component-selection-search {
   width: 98% !important;
-  border: 1px solid var(--theme-color-2);
+  border: 1px solid #E53940;
   border-radius: 0.25em;
   box-sizing: border-box;
 }
@@ -246,7 +246,7 @@ export default {
 .tag-selector-component-options {
   position: absolute;
   background-color: white;
-  border: 1px solid var(--theme-color-2);
+  border: 1px solid #000000;
   border-radius: 0.25em;
   width: 100%;
   max-height: 200px;
@@ -263,14 +263,14 @@ export default {
   padding: 5px 10px;
   margin: 5px;
   border-radius: 0.25em;
-  border: 1px solid var(--theme-color-2);
+  border: 1px solid #E53940;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
 }
 
 .tag-selector-component-options-option:hover {
-  background-color: var(--theme-color-2);
+  background-color: #E53940;
   color: white;
 }
 
@@ -279,12 +279,12 @@ export default {
   margin: 5px;
   font-weight: bold;
   border-radius: 0.25em;
-  border: 1px solid var(--theme-color-2);
+  border: 1px solid #E53940;
   cursor: pointer;
 }
 
 .create-new-tag:hover {
-  background-color: var(--theme-color-2);
+  background-color: #E53940;
   color: white;
 }
 

@@ -168,7 +168,7 @@
 
                 {% set links = pv_trans(financialSupport, 'links', app.request.locale)|default([]) %}
                 {% if links is not empty %}
-                    <h2>{{ 'Projekte' |trans }}</h2>
+                    <h2>{{ 'Mehr Informationen' |trans }}</h2>
                     <div class="list">
                         {% for link in links %}
                             <div class="list-item">
@@ -191,12 +191,6 @@
                             </div>
                         {% endfor %}
                     </div>
-                {% endif %}
-
-                {% set res = pv_trans(financialSupport, 'res', app.request.locale) %}
-                {% if res|trim is not empty %}
-                    <h2>{{ 'Mehr Informationen' | trans }}</h2>
-                    {{ res|raw }}
                 {% endif %}
             </div>
 

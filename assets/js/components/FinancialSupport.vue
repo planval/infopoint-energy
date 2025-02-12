@@ -240,20 +240,9 @@
                 </div>
 
                 <div class="row">
-                    <div class="col-md-8" v-if="locale === 'de'">
-                        <label for="contact">Mehr Informationen</label>
-                        <textarea name="res" id="res" class="form-control" rows="3" v-model="financialSupport.res" :placeholder="translateField(financialSupport, 'res', locale)"></textarea>
-                    </div>
-                    <div class="col-md-8" v-else>
-                        <label for="contact">Mehr Informationen (Übersetzung {{ locale.toUpperCase() }})</label>
-                        <textarea name="res" id="res" class="form-control" rows="3" v-model="financialSupport.translations[locale].res" :placeholder="translateField(financialSupport, 'res', locale)"></textarea>
-                    </div>
-                </div>
-
-                <div class="row">
                     <div class="col-md-8">
-                        <label v-if="locale === 'de'">Projekte</label>
-                        <label v-else>Projekte (Übersetzung {{ locale.toUpperCase() }})</label>
+                        <label v-if="locale === 'de'">Mehr Informationen</label>
+                        <label v-else>Mehr Informationen (Übersetzung {{ locale.toUpperCase() }})</label>
                         <div class="row" v-for="(link, index) in (locale === 'de' ? financialSupport.links : financialSupport.translations[locale].links)">
                             <div class="col-md-4">
                                 <input type="text" class="form-control" v-model="link.label" placeholder="Bezeichnung">
@@ -262,7 +251,7 @@
                                 <input type="text" class="form-control" v-model="link.value" placeholder="URL">
                             </div>
                             <div class="col-md-3">
-                                <button class="button error" @click="clickRemoveLink(index)">Projekt entfernen</button>
+                                <button class="button error" @click="clickRemoveLink(index)">Eintrag entfernen</button>
                             </div>
                         </div>
                     </div>
@@ -270,7 +259,7 @@
 
                 <div class="row">
                     <div class="col-md-8">
-                        <button class="button success" @click="clickAddLink()">Projekt hinzufügen</button>
+                        <button class="button success" @click="clickAddLink()">Eintrag hinzufügen</button>
                     </div>
                 </div>
 

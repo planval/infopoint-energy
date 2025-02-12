@@ -179,20 +179,10 @@
                     </div>
                 {% endif %}
 
-                {% set appointments = financialSupport.appointments|default([]) %}
-                {% set translatedAppointments = pv_trans(financialSupport, 'appointments', app.request.locale)|default([]) %}
-                {% if appointments is not empty or translatedAppointments is not empty %}
+                {% if financialSupport.appointments is not empty %}
                     <h2>{{ 'Termine' |trans }}</h2>
                     <div class="list">
-                        {% for appointment in appointments %}
-                            <div class="list-item">
-                                {{ appointment.date|date('d.m.Y') }}
-                                {% if appointment.description|default %} 
-                                    - {{ appointment.description|raw }}
-                                {% endif %}
-                            </div>
-                        {% endfor %}
-                        {% for appointment in translatedAppointments %}
+                        {% for appointment in financialSupport.appointments %}
                             <div class="list-item">
                                 {{ appointment.date|date('d.m.Y') }}
                                 {% if appointment.description|default %} 

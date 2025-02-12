@@ -10,7 +10,6 @@ use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Twig\Environment;
 
-
 class FinancialSupportExportService
 {
     private $em;
@@ -144,6 +143,137 @@ class FinancialSupportExportService
         }
     }
 
+    private function fetchLogoData(FinancialSupport $financialSupport): ?array
+    {
+        $logo = $financialSupport->getLogo();
+        if (!$logo || !isset($logo['id'])) {
+            return null;
+        }
+
+        $file = $this->em->getRepository(\App\Entity\File::class)->find($logo['id']);
+        if (!$file) {
+            return null;
+        }
+
+        try {
+            // Get the raw BLOB data
+            $data = stream_get_contents($file->getData());
+            if ($data === false) {
+                return null;
+            }
+            
+            // If the data starts with data URI scheme, extract just the base64 part
+            if (strpos($data, 'data:') === 0 && strpos($data, ';base64,') !== false) {
+                $data = explode(';base64,', $data)[1];
+            }
+            
+            // If the data is not already base64 encoded (raw binary), encode it
+            if (!preg_match('%^[a-zA-Z0-9/+]*={0,2}$%', $data)) {
+                $data = base64_encode($data);
+            }
+            
+            // Now decode the base64 data
+            $decodedData = base64_decode($data, true);
+            if ($decodedData === false) {
+                return null;
+            }
+
+            return [
+                'data' => $decodedData,
+                'name' => $logo['name'],
+                'id' => $file->getId()
+            ];
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function writeLogoToDisk(FinancialSupport $financialSupport, string $logoDir, array $logoData): ?string
+    {
+        try {
+            $extension = pathinfo($logoData['name'], PATHINFO_EXTENSION);
+            if (empty($extension)) {
+                $extension = 'png'; // Default to png if no extension is found
+            }
+            
+            $logoPath = $logoDir . '/' . $financialSupport->getId() . '.' . $extension;
+            
+            // Write the decoded data to the export logo file
+            if (file_put_contents($logoPath, $logoData['data']) === false) {
+                return null;
+            }
+            
+            return $logoPath;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function generatePdf(FinancialSupport $financialSupport, string $outputPath, ?array $logoData = null): void
+    {
+        try {
+            $mpdf = new Mpdf([
+                'fontDir' => [
+                    __DIR__.'/../../assets/fonts/',
+                ],
+                'fontdata' => [
+                    'notosans' => [
+                        'R' => 'NotoSans.ttf',
+                        'B' => 'NotoSans.ttf',
+                        'I' => 'NotoSans-Italic.ttf',
+                    ]
+                ],
+                'margin_left' => 20,
+                'margin_right' => 15,
+                'margin_top' => 20,
+                'margin_bottom' => 25,
+                'margin_header' => 10,
+                'margin_footer' => 10,
+                'default_font' => 'notosans',
+            ]);
+
+            // Always use German as the base locale for exports
+            $locale = 'de';
+
+            $mpdf->SetTitle(PvTrans::translate($financialSupport, 'name', $locale));
+            $mpdf->SetDisplayMode('fullpage');
+            $mpdf->shrink_tables_to_fit = 1;
+
+            $tempLogoPath = null;
+            if ($logoData) {
+                $tempLogoPath = tempnam(sys_get_temp_dir(), 'logo'.$logoData['id']);
+                if ($tempLogoPath !== false) {
+                    if (file_put_contents($tempLogoPath, $logoData['data']) === false) {
+                        $tempLogoPath = null;
+                    }
+                }
+            }
+
+            $mpdf->WriteHTML($this->twig->render('pdf/financial-support.html.twig', [
+                'financialSupport' => $financialSupport,
+                'logo' => $tempLogoPath,
+                'app' => ['request' => ['locale' => $locale]],
+            ]));
+
+            $mpdf->Output($outputPath, \Mpdf\Output\Destination::FILE);
+
+            if (!file_exists($outputPath)) {
+                throw new \RuntimeException('PDF file was not created at expected path');
+            }
+
+            // Clean up temporary logo file if it was created
+            if ($tempLogoPath && file_exists($tempLogoPath)) {
+                unlink($tempLogoPath);
+            }
+        } catch (\Throwable $e) {
+            // Clean up temporary logo file if it exists
+            if (isset($tempLogoPath) && file_exists($tempLogoPath)) {
+                unlink($tempLogoPath);
+            }
+            throw $e;
+        }
+    }
+
     private function generateDeJson(array $financialSupports, string $pdfDir, string $logoDir): array
     {
         $deJson = [];
@@ -151,15 +281,18 @@ class FinancialSupportExportService
 
         foreach ($financialSupports as $financialSupport) {
             try {
+                // First fetch the logo data if it exists
+                $logoData = $this->fetchLogoData($financialSupport);
+                
+                // Handle logo first
+                $logoPath = null;
+                if ($logoData) {
+                    $logoPath = $this->writeLogoToDisk($financialSupport, $logoDir, $logoData);
+                }
+                
                 // Generate PDF with ID as filename
                 $pdfPath = $pdfDir . '/' . $financialSupport->getId() . '.pdf';
-                $this->generatePdf($financialSupport, $pdfPath);
-                
-                // Handle logo
-                $logoPath = null;
-                if ($financialSupport->getLogo()) {
-                    $logoPath = $this->handleLogo($financialSupport, $logoDir);
-                }
+                $this->generatePdf($financialSupport, $pdfPath, $logoData);
 
                 // Convert arrays to <br> separated strings
                 $authorities = array_map(
@@ -263,29 +396,6 @@ class FinancialSupportExportService
         return $deJson;
     }
 
-    private function handleLogo(FinancialSupport $financialSupport, string $logoDir): ?string
-    {
-        $logo = $financialSupport->getLogo();
-        if ($logo && isset($logo['id'])) {
-            $file = $this->em->getRepository(\App\Entity\File::class)->find($logo['id']);
-            if ($file) {
-                try {
-                    $data = stream_get_contents($file->getData());
-                    $data = count(explode(';base64,', $data)) >= 2 ? explode(';base64,', $data, 2)[1] : $data;
-                    $extension = pathinfo($logo['name'], PATHINFO_EXTENSION);
-                    $logoPath = $logoDir . '/' . $financialSupport->getId() . '.' . $extension;
-                    
-                    file_put_contents($logoPath, base64_decode($data));
-
-                    return $logoPath;
-                } catch (\Throwable $e) {
-                    throw $e;
-                }
-            }
-        }
-        return null;
-    }
-
     private function formatContacts(array $contacts): string
     {
         if (empty($contacts)) {
@@ -339,75 +449,5 @@ class FinancialSupportExportService
         }
 
         return implode('<br><br>', $formattedContacts);
-    }
-
-    private function generatePdf(FinancialSupport $financialSupport, string $outputPath): void
-    {
-        try {
-            $mpdf = new Mpdf([
-                'fontDir' => [
-                    __DIR__.'/../../assets/fonts/',
-                ],
-                'fontdata' => [
-                    'notosans' => [
-                        'R' => 'NotoSans.ttf',
-                        'B' => 'NotoSans.ttf',
-                        'I' => 'NotoSans-Italic.ttf',
-                    ]
-                ],
-                'margin_left' => 20,
-                'margin_right' => 15,
-                'margin_top' => 20,
-                'margin_bottom' => 25,
-                'margin_header' => 10,
-                'margin_footer' => 10,
-                'default_font' => 'notosans',
-            ]);
-
-            // Always use German as the base locale for exports
-            $locale = 'de';
-
-            $mpdf->SetTitle(PvTrans::translate($financialSupport, 'name', $locale));
-            $mpdf->SetDisplayMode('fullpage');
-            $mpdf->shrink_tables_to_fit = 1;
-
-            $logo = PvTrans::translate($financialSupport, 'logo', $locale);
-            $tempLogoPath = null;
-
-            if($logo) {
-                $file = $this->em->getRepository(\App\Entity\File::class)
-                    ->find($logo['id']);
-                
-                if ($file) {
-                    $imagick = new \Imagick();
-                    $data = stream_get_contents($file->getData());
-                    $data = count(explode(';base64,', $data)) >= 2 ? explode(';base64,', $data, 2)[1] : $data;
-                    $imagick->readImageBlob(base64_decode($data));
-
-                    $tempLogoPath = tempnam(sys_get_temp_dir(), 'logo'.$file->getId());
-                    file_put_contents($tempLogoPath, $imagick->getImageBlob());
-                }
-            }
-
-            $mpdf->WriteHTML($this->twig->render('pdf/financial-support.html.twig', [
-                'financialSupport' => $financialSupport,
-                'logo' => $tempLogoPath,
-                'app' => ['request' => ['locale' => $locale]],
-            ]));
-
-            $mpdf->Output($outputPath, \Mpdf\Output\Destination::FILE);
-
-            if (!file_exists($outputPath)) {
-                throw new \RuntimeException('PDF file was not created at expected path');
-            }
-
-            // Clean up temporary logo file if it was created
-            if ($tempLogoPath && file_exists($tempLogoPath)) {
-                unlink($tempLogoPath);
-            }
-
-        } catch (\Throwable $e) {
-            throw $e;
-        }
     }
 } 

@@ -276,10 +276,9 @@
 
                 <div class="row">
                     <div class="col-md-12">
-                        <label v-if="locale === 'de'">Termine</label>
-                        <label v-else>Termine (Übersetzung {{ locale.toUpperCase() }})</label>
+                        <label>Termine</label>
                         <div class="financial-support-component-form-section-appointments">
-                            <div class="row" v-for="(appointment, index) in (locale === 'de' ? financialSupport.appointments : financialSupport.translations[locale].appointments)">
+                            <div class="row" v-for="(appointment, index) in financialSupport.appointments">
                                 <div class="col-md-3">
                                     <label>{{ $t('Datum') }}</label>
                                     <date-picker mode="date" :is24hr="true" v-model="appointment.date" :locale="'de'">
@@ -459,8 +458,7 @@ export default {
                         assignment: '',
                         links: [],
                         logo: null,
-                        contacts: [],
-                        appointments: [],
+                        contacts: []
                     },
                     it: {
                         name: '',
@@ -476,9 +474,8 @@ export default {
                         assignment: '',
                         links: [],
                         logo: null,
-                        contacts: [],
-                        appointments: [],
-                    },
+                        contacts: []
+                    }
                 },
             },
             modal: null,
@@ -603,23 +600,16 @@ export default {
             let contact = (this.locale === 'de' ? this.financialSupport.contacts : this.financialSupport.translations[this.locale].contacts).splice(index, 1)[0];
         },
         clickAddAppointment() {
-            const appointments = this.locale === 'de' ? 
-                (this.financialSupport.appointments = this.financialSupport.appointments || []) : 
-                (this.financialSupport.translations[this.locale].appointments = this.financialSupport.translations[this.locale].appointments || []);
-            
-            appointments.push({
+            if (!this.financialSupport.appointments) {
+                this.financialSupport.appointments = [];
+            }
+            this.financialSupport.appointments.push({
                 date: null,
                 description: '',
             });
         },
         clickRemoveAppointment(index) {
-            const appointments = this.locale === 'de' ? 
-                this.financialSupport.appointments : 
-                this.financialSupport.translations[this.locale].appointments;
-            
-            if (appointments) {
-                appointments.splice(index, 1);
-            }
+            this.financialSupport.appointments.splice(index, 1);
         },
         handleTagCreated({ type, tag }) {
             // Update the Vuex store based on tag type

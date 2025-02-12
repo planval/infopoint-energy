@@ -106,7 +106,7 @@
                 <li v-if="hasRole('ROLE_EDITOR') && $env.PLUGIN_ENABLE_FINANCIAL_SUPPORTS">
                     <router-link to="/financial-supports" :class="{'router-link-parent-active': this.$route.path.startsWith('/financial-support')}">
                         <span class="material-icons">account_balance</span>
-                        <span class="label">Finanzhilfen</span>
+                        <span class="label">Förderhilfen</span>
                     </router-link>
                     <ul>
                         <li>

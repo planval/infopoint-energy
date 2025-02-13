@@ -53,8 +53,8 @@
                                       :options="authorities.filter(authority => !authority.context || authority.context === 'financial-support')"
                                       :searchType="'select'"></tag-selector>
                         <div v-if="hasWeitereAuthority" class="mt-2">
-                            <label v-if="locale === 'de'">Andere Förderstelle</label>
-                            <label v-else>Andere Förderstelle (Übersetzung {{ locale.toUpperCase() }})</label>
+                            <label v-if="locale === 'de'">Weitere Förderstelle</label>
+                            <label v-else>Weitere Förderstelle (Übersetzung {{ locale.toUpperCase() }})</label>
                             <input type="text" class="form-control" v-model="currentOtherOptionValues.authority">
                         </div>
                     </div>
@@ -75,8 +75,8 @@
                                       :options="instruments.filter(instrument => !instrument.context || instrument.context === 'financial-support')"
                                       :searchType="'select'"></tag-selector>
                         <div v-if="hasWeitereInstrument" class="mt-2">
-                            <label v-if="locale === 'de'">Andere Unterstützungsform</label>
-                            <label v-else>Andere Unterstützungsform (Übersetzung {{ locale.toUpperCase() }})</label>
+                            <label v-if="locale === 'de'">Weitere Unterstützungsform</label>
+                            <label v-else>Weitere Unterstützungsform (Übersetzung {{ locale.toUpperCase() }})</label>
                             <input type="text" class="form-control" v-model="currentOtherOptionValues.instrument">
                         </div>
                     </div>
@@ -89,8 +89,8 @@
                                       :options="beneficiaries.filter(beneficiary => !beneficiary.context || beneficiary.context === 'financial-support')"
                                       :searchType="'select'"></tag-selector>
                         <div v-if="hasWeitereBeneficiary" class="mt-2">
-                            <label v-if="locale === 'de'">Andere Begünstigte</label>
-                            <label v-else>Andere Begünstigte (Übersetzung {{ locale.toUpperCase() }})</label>
+                            <label v-if="locale === 'de'">Weitere Begünstigte</label>
+                            <label v-else>Weitere Begünstigte (Übersetzung {{ locale.toUpperCase() }})</label>
                             <input type="text" class="form-control" v-model="currentOtherOptionValues.beneficiary">
                         </div>
                     </div>

@@ -307,6 +307,28 @@ class FinancialSupportExportService
                     fn($beneficiary) => PvTrans::translate($beneficiary, 'name', $locale),
                     $financialSupport->getBeneficiaries() ? $financialSupport->getBeneficiaries()->toArray() : []
                 );
+
+                // Handle otherNames for Weitere options
+                $otherOptionValues = $locale === 'de' ? 
+                    $financialSupport->getOtherOptionValues() : 
+                    (isset($financialSupport->getTranslations()[$locale]['otherOptionValues']) ? 
+                        $financialSupport->getTranslations()[$locale]['otherOptionValues'] : null);
+
+                if ($otherOptionValues) {
+                    // Add otherOptionValues.authority if Weitere is in authorities
+                    if (in_array('Weitere', $authorities) && !empty($otherOptionValues['authority'])) {
+                        $authorities[] = $otherOptionValues['authority'];
+                    }
+                    // Add otherOptionValues.instrument if Weitere is in instruments
+                    if (in_array('Weitere', $instruments) && !empty($otherOptionValues['instrument'])) {
+                        $instruments[] = $otherOptionValues['instrument'];
+                    }
+                    // Add otherOptionValues.beneficiary if Weitere is in beneficiaries
+                    if (in_array('Weitere', $beneficiaries) && !empty($otherOptionValues['beneficiary'])) {
+                        $beneficiaries[] = $otherOptionValues['beneficiary'];
+                    }
+                }
+
                 $topics = array_map(
                     fn($topic) => PvTrans::translate($topic, 'name', $locale),
                     $financialSupport->getTopics() ? $financialSupport->getTopics()->toArray() : []

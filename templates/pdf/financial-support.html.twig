@@ -218,21 +218,60 @@
                     </div>
                 {% endif %}
 
-                {% if financialSupport.authorities is not empty %}
-                    <h2>{{ 'Förderstelle' |trans }}</h2>
+                {% if financialSupport.authorities|length > 0 %}
+                    <h2>{{ 'Förderstelle'|trans }}</h2>
                     <div class="list">
+                        {% set authorities = [] %}
+                        {% set other_authority_value = null %}
                         {% for authority in financialSupport.authorities %}
-                            <div class="list-item">{{ pv_trans(authority, 'name', app.request.locale) }}</div>
+                            {% if authority.name == 'Weitere' and financialSupport.otherOptionValues.authority is defined and financialSupport.otherOptionValues.authority is not empty %}
+                                {% set other_authority_value = 'Weitere: ' ~ financialSupport.otherOptionValues.authority %}
+                            {% else %}
+                                {% set authorities = authorities|merge([authority.name|trans]) %}
+                            {% endif %}
                         {% endfor %}
+                        {% if other_authority_value is not null %}
+                            {% set authorities = authorities|merge([other_authority_value]) %}
+                        {% endif %}
+                        <div class="list-item">{{ authorities|join(', ') }}</div>
                     </div>
                 {% endif %}
 
-                {% if financialSupport.beneficiaries is not empty %}
-                    <h2>{{ 'Begünstigte' |trans }}</h2>
+                {% if financialSupport.instruments|length > 0 %}
+                    <h2>{{ 'Unterstützungsform'|trans }}</h2>
                     <div class="list">
-                        {% for beneficiary in financialSupport.beneficiaries %}
-                            <div class="list-item">{{ pv_trans(beneficiary, 'name', app.request.locale) }}</div>
+                        {% set instruments = [] %}
+                        {% set other_instrument_value = null %}
+                        {% for instrument in financialSupport.instruments %}
+                            {% if instrument.name == 'Weitere' and financialSupport.otherOptionValues.instrument is defined and financialSupport.otherOptionValues.instrument is not empty %}
+                                {% set other_instrument_value = 'Weitere: ' ~ financialSupport.otherOptionValues.instrument %}
+                            {% else %}
+                                {% set instruments = instruments|merge([instrument.name|trans]) %}
+                            {% endif %}
                         {% endfor %}
+                        {% if other_instrument_value is not null %}
+                            {% set instruments = instruments|merge([other_instrument_value]) %}
+                        {% endif %}
+                        <div class="list-item">{{ instruments|join(', ') }}</div>
+                    </div>
+                {% endif %}
+
+                {% if financialSupport.beneficiaries|length > 0 %}
+                    <h2>{{ 'Begünstigte'|trans }}</h2>
+                    <div class="list">
+                        {% set beneficiaries = [] %}
+                        {% set other_beneficiary_value = null %}
+                        {% for beneficiary in financialSupport.beneficiaries %}
+                            {% if beneficiary.name == 'Weitere' and financialSupport.otherOptionValues.beneficiary is defined and financialSupport.otherOptionValues.beneficiary is not empty %}
+                                {% set other_beneficiary_value = 'Weitere: ' ~ financialSupport.otherOptionValues.beneficiary %}
+                            {% else %}
+                                {% set beneficiaries = beneficiaries|merge([beneficiary.name|trans]) %}
+                            {% endif %}
+                        {% endfor %}
+                        {% if other_beneficiary_value is not null %}
+                            {% set beneficiaries = beneficiaries|merge([other_beneficiary_value]) %}
+                        {% endif %}
+                        <div class="list-item">{{ beneficiaries|join(', ') }}</div>
                     </div>
                 {% endif %}
 
@@ -250,15 +289,6 @@
                     <div class="list">
                         {% for projectType in financialSupport.projectTypes %}
                             <div class="list-item">{{ pv_trans(projectType, 'name', app.request.locale) }}</div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-
-                {% if financialSupport.instruments is not empty %}
-                    <h2>{{ 'Unterstützungsarten' |trans }}</h2>
-                    <div class="list">
-                        {% for instrument in financialSupport.instruments %}
-                            <div class="list-item">{{ pv_trans(instrument, 'name', app.request.locale) }}</div>
                         {% endfor %}
                     </div>
                 {% endif %}

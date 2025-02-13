@@ -220,6 +220,10 @@ class FinancialSupport
     #[Groups(['financial_support'])]
     private $assignment;
 
+    #[ORM\Column(name: 'other_option_values', type: 'json')]
+    #[Groups(['financial_support'])]
+    private $otherOptionValues = [];
+
     public function __construct()
     {
         $this->authorities = new ArrayCollection();
@@ -1080,6 +1084,30 @@ class FinancialSupport
     public function getAssignment()
     {
         return $this->assignment;
+    }
+
+    /**
+     * Set otherOptionValues
+     *
+     * @param array $otherOptionValues
+     *
+     * @return FinancialSupport
+     */
+    public function setOtherOptionValues($otherOptionValues)
+    {
+        $this->otherOptionValues = $otherOptionValues;
+
+        return $this;
+    }
+
+    /**
+     * Get otherOptionValues
+     *
+     * @return array
+     */
+    public function getOtherOptionValues()
+    {
+        return $this->otherOptionValues;
     }
 
 }

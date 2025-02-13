@@ -49,12 +49,14 @@
                 <div class="row">
                     <div class="col-md-6">
                         <label for="authorities">Förderstelle</label>
-                        <tag-search-select id="authorities" :model="financialSupport.authorities"
+                        <tag-selector id="authorities" :model="financialSupport.authorities"
                                       :options="authorities.filter(authority => !authority.context || authority.context === 'financial-support')"
-                                      :type="'authority'"
-                                      :context="'financial-support'"
-                                      :placeholder="'Förderstelle suchen oder erstellen...'"
-                                      @tagCreated="handleTagCreated"></tag-search-select>
+                                      :searchType="'select'"></tag-selector>
+                        <div v-if="hasWeitereAuthority" class="mt-2">
+                            <label v-if="locale === 'de'">Andere Förderstelle</label>
+                            <label v-else>Andere Förderstelle (Übersetzung {{ locale.toUpperCase() }})</label>
+                            <input type="text" class="form-control" v-model="currentOtherOptionValues.authority">
+                        </div>
                     </div>
                 </div>
 
@@ -69,24 +71,28 @@
                 <div class="row">
                     <div class="col-md-6">
                         <label for="instruments">Unterstützungsform</label>
-                        <tag-search-select id="instruments" :model="financialSupport.instruments"
+                        <tag-selector id="instruments" :model="financialSupport.instruments"
                                       :options="instruments.filter(instrument => !instrument.context || instrument.context === 'financial-support')"
-                                      :type="'instrument'"
-                                      :context="'financial-support'"
-                                      :placeholder="'Unterstützungsform suchen oder erstellen...'"
-                                      @tagCreated="handleTagCreated"></tag-search-select>
+                                      :searchType="'select'"></tag-selector>
+                        <div v-if="hasWeitereInstrument" class="mt-2">
+                            <label v-if="locale === 'de'">Andere Unterstützungsform</label>
+                            <label v-else>Andere Unterstützungsform (Übersetzung {{ locale.toUpperCase() }})</label>
+                            <input type="text" class="form-control" v-model="currentOtherOptionValues.instrument">
+                        </div>
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="col-md-6">
                         <label for="beneficiaries">Begünstigte</label>
-                        <tag-search-select id="beneficiaries" :model="financialSupport.beneficiaries"
-                                      :options="beneficiaries.filter(beneficiary => !beneficiary.context || beneficiary.context === 'financial-support')" 
-                                      :type="'beneficiary'"
-                                      :context="'financial-support'"
-                                      :placeholder="'Begünstigte suchen oder erstellen...'"
-                                      @tagCreated="handleTagCreated"></tag-search-select>
+                        <tag-selector id="beneficiaries" :model="financialSupport.beneficiaries"
+                                      :options="beneficiaries.filter(beneficiary => !beneficiary.context || beneficiary.context === 'financial-support')"
+                                      :searchType="'select'"></tag-selector>
+                        <div v-if="hasWeitereBeneficiary" class="mt-2">
+                            <label v-if="locale === 'de'">Andere Begünstigte</label>
+                            <label v-else>Andere Begünstigte (Übersetzung {{ locale.toUpperCase() }})</label>
+                            <input type="text" class="form-control" v-model="currentOtherOptionValues.beneficiary">
+                        </div>
                     </div>
                 </div>
 
@@ -441,6 +447,11 @@ export default {
                 geographicRegions: [],
                 contacts: [],
                 appointments: [],
+                otherOptionValues: {
+                    authority: '',
+                    instrument: '',
+                    beneficiary: ''
+                },
                 translations: {
                     fr: {
                         name: '',
@@ -457,7 +468,12 @@ export default {
                         links: [],
                         logo: null,
                         contacts: [],
-                        appointments: []
+                        appointments: [],
+                        otherOptionValues: {
+                            authority: '',
+                            instrument: '',
+                            beneficiary: ''
+                        }
                     },
                     it: {
                         name: '',
@@ -474,7 +490,12 @@ export default {
                         links: [],
                         logo: null,
                         contacts: [],
-                        appointments: []
+                        appointments: [],
+                        otherOptionValues: {
+                            authority: '',
+                            instrument: '',
+                            beneficiary: ''
+                        }
                     }
                 },
             },
@@ -522,7 +543,39 @@ export default {
         }),
         ...mapGetters({
             getAuthorityById: 'authorities/getById',
+            getInstrumentById: 'instruments/getById',
+            getBeneficiaryById: 'beneficiaries/getById',
         }),
+        hasWeitereAuthority() {
+            return this.financialSupport.authorities && 
+                   this.financialSupport.authorities.some(a => this.getAuthorityById(a.id)?.name === 'Weitere');
+        },
+        hasWeitereInstrument() {
+            return this.financialSupport.instruments && 
+                   this.financialSupport.instruments.some(i => this.getInstrumentById(i.id)?.name === 'Weitere');
+        },
+        hasWeitereBeneficiary() {
+            return this.financialSupport.beneficiaries && 
+                   this.financialSupport.beneficiaries.some(b => this.getBeneficiaryById(b.id)?.name === 'Weitere');
+        },
+        currentOtherOptionValues: {
+            get() {
+                if (this.locale === 'de') {
+                    return this.financialSupport.otherOptionValues || {};
+                }
+                return (this.financialSupport.translations[this.locale] || {}).otherOptionValues || {};
+            },
+            set(value) {
+                if (this.locale === 'de') {
+                    this.financialSupport.otherOptionValues = value;
+                } else {
+                    if (!this.financialSupport.translations[this.locale]) {
+                        this.financialSupport.translations[this.locale] = {};
+                    }
+                    this.financialSupport.translations[this.locale].otherOptionValues = value;
+                }
+            }
+        },
     },
     methods: {
         clickDelete () {
@@ -561,6 +614,36 @@ export default {
                 this.financialSupport.endDate = null;
             }
 
+            // Initialize otherOptionValues if it doesn't exist
+            if (!this.financialSupport.otherOptionValues) {
+                this.financialSupport.otherOptionValues = {
+                    authority: '',
+                    instrument: '',
+                    beneficiary: ''
+                };
+            }
+
+            // Get the current values based on locale
+            const currentValues = this.currentOtherOptionValues;
+            
+            // Update otherOptionValues based on locale
+            if (this.locale === 'de') {
+                this.financialSupport.otherOptionValues = {
+                    authority: currentValues.authority || '',
+                    instrument: currentValues.instrument || '',
+                    beneficiary: currentValues.beneficiary || ''
+                };
+            } else {
+                if (!this.financialSupport.translations[this.locale]) {
+                    this.financialSupport.translations[this.locale] = {};
+                }
+                this.financialSupport.translations[this.locale].otherOptionValues = {
+                    authority: currentValues.authority || '',
+                    instrument: currentValues.instrument || '',
+                    beneficiary: currentValues.beneficiary || ''
+                };
+            }
+
             const savePromise = this.financialSupport.id ? 
                 this.$store.dispatch('financialSupports/update', this.financialSupport) :
                 this.$store.dispatch('financialSupports/create', this.financialSupport);
@@ -580,7 +663,31 @@ export default {
             if(this.$route.params.id) {
                 this.$store.commit('financialSupports/set', {});
                 this.$store.dispatch('financialSupports/load', this.$route.params.id).then(() => {
-                    this.financialSupport = {...this.selectedFinancialSupport};
+                    // Create a deep copy of the selected financial support
+                    this.financialSupport = JSON.parse(JSON.stringify(this.selectedFinancialSupport));
+                    
+                    // Ensure otherOptionValues is properly initialized
+                    if (!this.financialSupport.otherOptionValues) {
+                        this.financialSupport.otherOptionValues = {
+                            authority: '',
+                            instrument: '',
+                            beneficiary: ''
+                        };
+                    }
+                    
+                    // Ensure translations have otherOptionValues initialized
+                    ['fr', 'it'].forEach(locale => {
+                        if (!this.financialSupport.translations[locale]) {
+                            this.financialSupport.translations[locale] = {};
+                        }
+                        if (!this.financialSupport.translations[locale].otherOptionValues) {
+                            this.financialSupport.translations[locale].otherOptionValues = {
+                                authority: '',
+                                instrument: '',
+                                beneficiary: ''
+                            };
+                        }
+                    });
                 });
             }
         },

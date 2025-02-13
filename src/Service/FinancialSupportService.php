@@ -156,7 +156,7 @@ class FinancialSupportService {
 
             foreach($financialSupport->getGeographicRegions() as $e) {
                 $searchIndex[] = PvTrans::translate($e, 'name', $locale);
-            }
+            }       
         }
 
         return implode(PHP_EOL, array_unique(array_filter($searchIndex)));
@@ -191,8 +191,8 @@ class FinancialSupportService {
             ->setGeographicRegions(new ArrayCollection())
             ->setTranslations($payload['translations'] ?: [])
             ->setAppointments($payload['appointments'] ?: [])
-            ->setAssignment($payload['assignment'] ?: null);
-        ;
+            ->setAssignment($payload['assignment'] ?: null)
+            ->setOtherOptionValues($payload['otherOptionValues'] ?: null);
 
         foreach($payload['authorities'] as $item) {
             $entity = null;

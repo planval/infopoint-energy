@@ -38,7 +38,7 @@ const routes = [
         children: [
             {
                 path: '',
-                redirect: '/inbox',
+                redirect: '/financial-supports',
             },
             {
                 path: 'inbox',

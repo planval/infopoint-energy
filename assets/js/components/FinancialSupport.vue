@@ -45,44 +45,48 @@
                     </div>
                 </div>
 
-                <div class="row">
-                    <div class="col-md-3">
-                        <label for="startDate">Laufzeit (Start)</label>
-                        <date-picker mode="date" :is24hr="true" v-model="financialSupport.startDate" @update:modelValue="!financialSupport.endDate ? financialSupport.endDate = financialSupport.startDate : null" :locale="'de'">
-                            <template v-slot="{ inputValue, inputEvents }">
-                                <input type="text" class="form-control"
-                                       :value="inputValue"
-                                       v-on="inputEvents"
-                                       id="startDate">
-                            </template>
-                        </date-picker>
-                    </div>
-                    <div class="col-md-3">
-                        <label for="endDate">Laufzeit (Ende)</label>
-                        <date-picker mode="date" :is24hr="true" v-model="financialSupport.endDate" :locale="'de'">
-                            <template v-slot="{ inputValue, inputEvents }">
-                                <input type="text" class="form-control"
-                                       :value="inputValue"
-                                       v-on="inputEvents"
-                                       id="endDate">
-                            </template>
-                        </date-picker>
-                    </div>
-                </div>
 
                 <div class="row">
                     <div class="col-md-6">
                         <label for="authorities">Förderstelle</label>
-                        <tag-selector id="authorities" :model="financialSupport.authorities"
-                                      :options="authorities.filter(authority => !authority.context || authority.context === 'financial-support')" :searchType="'select'"></tag-selector>
+                        <tag-search-select id="authorities" :model="financialSupport.authorities"
+                                      :options="authorities.filter(authority => !authority.context || authority.context === 'financial-support')"
+                                      :type="'authority'"
+                                      :context="'financial-support'"
+                                      :placeholder="'Förderstelle suchen oder erstellen...'"
+                                      @tagCreated="handleTagCreated"></tag-search-select>
+                    </div>
+                </div>
+
+                <!-- <div class="row">
+                    <div class="col-md-6">
+                        <label for="states">Kantone</label>
+                        <tag-selector id="states" :model="financialSupport.states"
+                                      :options="states.filter(state => !state.context || state.context === 'financial-support')" :searchType="'select'"></tag-selector>
+                    </div>
+                </div> -->
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="instruments">Unterstützungsform</label>
+                        <tag-search-select id="instruments" :model="financialSupport.instruments"
+                                      :options="instruments.filter(instrument => !instrument.context || instrument.context === 'financial-support')"
+                                      :type="'instrument'"
+                                      :context="'financial-support'"
+                                      :placeholder="'Unterstützungsform suchen oder erstellen...'"
+                                      @tagCreated="handleTagCreated"></tag-search-select>
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="col-md-6">
-                        <label for="states">Kantone</label>
-                        <tag-selector id="states" :model="financialSupport.states"
-                                      :options="states.filter(state => !state.context || state.context === 'financial-support')" :searchType="'select'"></tag-selector>
+                        <label for="beneficiaries">Begünstigte</label>
+                        <tag-search-select id="beneficiaries" :model="financialSupport.beneficiaries"
+                                      :options="beneficiaries.filter(beneficiary => !beneficiary.context || beneficiary.context === 'financial-support')" 
+                                      :type="'beneficiary'"
+                                      :context="'financial-support'"
+                                      :placeholder="'Begünstigte suchen oder erstellen...'"
+                                      @tagCreated="handleTagCreated"></tag-search-select>
                     </div>
                 </div>
 
@@ -99,17 +103,7 @@
                     </div>
                 </div>
 
-                <div class="row">
-                    <div class="col-md-6">
-                        <label for="beneficiaries">Begünstigte</label>
-                        <tag-search-select id="beneficiaries" :model="financialSupport.beneficiaries"
-                                      :options="beneficiaries.filter(beneficiary => !beneficiary.context || beneficiary.context === 'financial-support')" 
-                                      :type="'beneficiary'"
-                                      :context="'financial-support'"
-                                      :placeholder="'Begünstigte suchen oder erstellen...'"
-                                      @tagCreated="handleTagCreated"></tag-search-select>
-                    </div>
-                </div>
+
 
                 <div class="row">
                     <div class="col-md-8" v-if="locale === 'de'">
@@ -165,12 +159,12 @@
 
                 <div class="row">
                     <div class="col-md-8" v-if="locale === 'de'">
-                        <label for="text">Tipps zur Beantragung</label>
+                        <label for="text">Tipps für die erfolgreiche Beantragung</label>
                         <ckeditor id="text" :editor="editor" :config="editorConfig"
                                   v-model="financialSupport.applicationTips" :placeholder="translateField(financialSupport, 'applicationTips', locale)"></ckeditor>
                     </div>
                     <div class="col-md-8" v-else>
-                        <label for="text">Tipps zur Beantragung (Übersetzung {{ locale.toUpperCase() }})</label>
+                        <label for="text">Tipps für die erfolgreiche Beantragung (Übersetzung {{ locale.toUpperCase() }})</label>
                         <ckeditor id="text" :editor="editor" :config="editorConfig"
                                   v-model="financialSupport.translations[locale].applicationTips" :placeholder="translateField(financialSupport, 'applicationTips', locale)"></ckeditor>
                     </div>
@@ -193,32 +187,6 @@
                 </div>
 
                 <div class="row">
-                    <div class="col-md-6">
-                        <label for="instruments">Unterstützungsarten</label>
-                        <tag-search-select id="instruments" :model="financialSupport.instruments"
-                                      :options="instruments.filter(instrument => !instrument.context || instrument.context === 'financial-support')"
-                                      :type="'instrument'"
-                                      :context="'financial-support'"
-                                      :placeholder="'Unterstützungsarten suchen oder erstellen...'"
-                                      @tagCreated="handleTagCreated"></tag-search-select>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="col-md-6">
-                        <label for="zuteilung">Zuteilung</label>
-                        <div class="select-wrapper">
-                            <select id="zuteilung" class="form-control" v-model="financialSupport.assignment">
-                                <option value=""></option>
-                                <option value="Finanziell">Finanziell</option>
-                                <option value="Nicht-Finanziell">Nicht-Finanziell</option>
-                                <option value="beides">beides</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row">
                     <div class="col-md-8" v-if="locale === 'de'">
                         <label for="text">Finanzierung</label>
                         <ckeditor id="text" :editor="editor" :config="editorConfig"
@@ -236,64 +204,6 @@
                         <label for="geographicRegions">Fördergebiet</label>
                         <tag-selector id="geographicRegions" :model="financialSupport.geographicRegions"
                                       :options="geographicRegions.filter(geographicRegion => !geographicRegion.context || geographicRegion.context === 'financial-support')" :searchType="'select'"></tag-selector>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="col-md-8">
-                        <label v-if="locale === 'de'">Mehr Informationen</label>
-                        <label v-else>Mehr Informationen (Übersetzung {{ locale.toUpperCase() }})</label>
-                        <div class="row" v-for="(link, index) in (locale === 'de' ? financialSupport.links : financialSupport.translations[locale].links)">
-                            <div class="col-md-4">
-                                <input type="text" class="form-control" v-model="link.label" placeholder="Bezeichnung">
-                            </div>
-                            <div class="col-md-4">
-                                <input type="text" class="form-control" v-model="link.value" placeholder="URL">
-                            </div>
-                            <div class="col-md-3">
-                                <button class="button error" @click="clickRemoveLink(index)">Eintrag entfernen</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="col-md-8">
-                        <button class="button success" @click="clickAddLink()">Eintrag hinzufügen</button>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="col-md-12">
-                        <label>Termine</label>
-                        <div class="financial-support-component-form-section-appointments">
-                            <div class="row" v-for="(appointment, index) in financialSupport.appointments">
-                                <div class="col-md-3">
-                                    <label>{{ $t('Datum') }}</label>
-                                    <date-picker mode="date" :is24hr="true" v-model="appointment.date" :locale="'de'">
-                                        <template v-slot="{ inputValue, inputEvents }">
-                                            <input type="text" class="form-control"
-                                                   :value="inputValue"
-                                                   v-on="inputEvents"
-                                                   :placeholder="$t('Datum')">
-                                        </template>
-                                    </date-picker>
-                                </div>
-                                <div class="col-md-6">
-                                    <label>{{ $t('Beschreibung') }}</label>
-                                    <ckeditor :editor="editor" :config="editorConfig"
-                                              v-model="appointment.description" :placeholder="$t('Beschreibung')"></ckeditor>
-                                </div>
-                                <div class="col-md-3">
-                                    <button class="button error" @click="clickRemoveAppointment(index)">Termin entfernen</button>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-12">
-                                    <button class="button success" @click="clickAddAppointment()">Termin hinzufügen</button>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -378,6 +288,105 @@
                     </div>
                 </div>
 
+                <div class="row">
+                    <div class="col-md-8">
+                        <label v-if="locale === 'de'">{{ $t('Mehr Informationen') }}</label>
+                        <label v-else>{{ $t('Mehr Informationen') }} (Übersetzung {{ locale.toUpperCase() }})</label>
+                        <div class="row" v-for="(link, index) in (locale === 'de' ? financialSupport.links : financialSupport.translations[locale].links)">
+                            <div class="col-md-4">
+                                <input type="text" class="form-control" v-model="link.label" placeholder="Bezeichnung">
+                            </div>
+                            <div class="col-md-4">
+                                <input type="text" class="form-control" v-model="link.value" placeholder="URL">
+                            </div>
+                            <div class="col-md-3">
+                                <button class="button error" @click="clickRemoveLink(index)">Eintrag entfernen</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-8">
+                        <button class="button success" @click="clickAddLink()">Eintrag hinzufügen</button>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-3">
+                        <label for="startDate">Laufzeit (Start)</label>
+                        <date-picker mode="date" :is24hr="true" v-model="financialSupport.startDate" @update:modelValue="!financialSupport.endDate ? financialSupport.endDate = financialSupport.startDate : null" :locale="'de'">
+                            <template v-slot="{ inputValue, inputEvents }">
+                                <input type="text" class="form-control"
+                                       :value="inputValue"
+                                       v-on="inputEvents"
+                                       id="startDate">
+                            </template>
+                        </date-picker>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="endDate">Laufzeit (Ende)</label>
+                        <date-picker mode="date" :is24hr="true" v-model="financialSupport.endDate" :locale="'de'">
+                            <template v-slot="{ inputValue, inputEvents }">
+                                <input type="text" class="form-control"
+                                       :value="inputValue"
+                                       v-on="inputEvents"
+                                       id="endDate">
+                            </template>
+                        </date-picker>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <label v-if="locale === 'de'">{{ $t('Termine') }}</label>
+                        <label v-else>{{ $t('Termine') }} (Übersetzung {{ locale.toUpperCase() }})</label>
+                        <div class="financial-support-component-form-section-appointments">
+                            <div class="row" v-for="(appointment, index) in (locale === 'de' ? financialSupport.appointments : financialSupport.translations[locale].appointments)">
+                                <div class="col-md-3">
+                                    <label>{{ $t('Datum') }}</label>
+                                    <date-picker mode="date" :is24hr="true" v-model="appointment.date" :locale="'de'">
+                                        <template v-slot="{ inputValue, inputEvents }">
+                                            <input type="text" class="form-control"
+                                                   :value="inputValue"
+                                                   v-on="inputEvents"
+                                                   :placeholder="$t('Datum')">
+                                        </template>
+                                    </date-picker>
+                                </div>
+                                <div class="col-md-6">
+                                    <label>{{ $t('Beschreibung') }}</label>
+                                    <ckeditor :editor="editor" :config="editorConfig"
+                                              v-model="appointment.description" :placeholder="$t('Beschreibung')"></ckeditor>
+                                </div>
+                                <div class="col-md-3">
+                                    <button class="button error" @click="clickRemoveAppointment(index)">{{ $t('Termin entfernen') }}</button>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <button class="button success" @click="clickAddAppointment()">{{ $t('Termin hinzufügen') }}</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="zuteilung">Zuteilung</label>
+                        <div class="select-wrapper">
+                            <select id="zuteilung" class="form-control" v-model="financialSupport.assignment">
+                                <option value=""></option>
+                                <option value="Finanziell">Finanziell</option>
+                                <option value="Nicht-Finanziell">Nicht-Finanziell</option>
+                                <option value="beides">beides</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
         </div>
@@ -447,7 +456,8 @@ export default {
                         assignment: '',
                         links: [],
                         logo: null,
-                        contacts: []
+                        contacts: [],
+                        appointments: []
                     },
                     it: {
                         name: '',
@@ -463,7 +473,8 @@ export default {
                         assignment: '',
                         links: [],
                         logo: null,
-                        contacts: []
+                        contacts: [],
+                        appointments: []
                     }
                 },
             },
@@ -589,16 +600,30 @@ export default {
             let contact = (this.locale === 'de' ? this.financialSupport.contacts : this.financialSupport.translations[this.locale].contacts).splice(index, 1)[0];
         },
         clickAddAppointment() {
-            if (!this.financialSupport.appointments) {
-                this.financialSupport.appointments = [];
+            if (this.locale === 'de') {
+                if (!this.financialSupport.appointments) {
+                    this.financialSupport.appointments = [];
+                }
+                this.financialSupport.appointments.push({
+                    date: null,
+                    description: '',
+                });
+            } else {
+                if (!this.financialSupport.translations[this.locale].appointments) {
+                    this.financialSupport.translations[this.locale].appointments = [];
+                }
+                this.financialSupport.translations[this.locale].appointments.push({
+                    date: null,
+                    description: '',
+                });
             }
-            this.financialSupport.appointments.push({
-                date: null,
-                description: '',
-            });
         },
         clickRemoveAppointment(index) {
-            this.financialSupport.appointments.splice(index, 1);
+            if (this.locale === 'de') {
+                this.financialSupport.appointments.splice(index, 1);
+            } else {
+                this.financialSupport.translations[this.locale].appointments.splice(index, 1);
+            }
         },
         handleTagCreated({ type, tag }) {
             // Update the Vuex store based on tag type
@@ -608,6 +633,9 @@ export default {
                     break;
                 case 'instrument':
                     this.$store.commit('instruments/add', tag);
+                    break;
+                case 'authority':
+                    this.$store.commit('authorities/add', tag);
                     break;
             }
         },

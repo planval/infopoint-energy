@@ -323,7 +323,11 @@ class FinancialSupportExportService
                 // Format appointments
                 $appointments = [];
                 $appointmentTexts = [];
-                foreach ($financialSupport->getAppointments() ?? [] as $appointment) {
+                $appointmentsList = $locale === 'de' ? $financialSupport->getAppointments() : 
+                    (isset($financialSupport->getTranslations()[$locale]['appointments']) ? 
+                    $financialSupport->getTranslations()[$locale]['appointments'] : []);
+                
+                foreach ($appointmentsList ?? [] as $appointment) {
                     if (isset($appointment['date'])) {
                         $date = new \DateTime($appointment['date']);
                         $appointments[] = $date->format('d.m.Y');
@@ -335,7 +339,11 @@ class FinancialSupportExportService
 
                 // Format links for mehrinfos
                 $mehrinfos = [];
-                foreach ($financialSupport->getLinks() ?? [] as $link) {
+                $linksList = $locale === 'de' ? $financialSupport->getLinks() : 
+                    (isset($financialSupport->getTranslations()[$locale]['links']) ? 
+                    $financialSupport->getTranslations()[$locale]['links'] : []);
+                
+                foreach ($linksList ?? [] as $link) {
                     if (!empty($link['value']) && !empty($link['label'])) {
                         $mehrinfos[] = sprintf(
                             '<a href="%s" target="_blank" class="contLinks" title="%s">%s</a>',

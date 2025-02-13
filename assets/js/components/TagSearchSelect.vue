@@ -164,6 +164,7 @@ export default {
       const endpoints = {
         'instrument': '/api/v1/instruments/create',
         'beneficiary': '/api/v1/beneficiaries/create',
+        'authority': '/api/v1/authorities/create',
         'tag': '/api/v1/tags/create'
       };
       return endpoints[this.type];

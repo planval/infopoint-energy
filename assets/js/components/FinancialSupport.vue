@@ -715,14 +715,6 @@ export default {
                 this.financialSupport.translations[this.locale].appointments.splice(index, 1);
             }
         },
-        handleTagCreated({ type, tag }) {
-            // Update the Vuex store based on tag type
-            switch(type) {
-                case 'beneficiary':
-                    this.$store.commit('beneficiaries/add', tag);
-                    break;
-            }
-        },
         translateField,
     },
     created () {

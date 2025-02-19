@@ -43,11 +43,11 @@ class ApiFinancialSupportsController extends AbstractController
         schema: new OA\Schema(type: 'array', items: new OA\Items(type: 'string', enum: ['public', 'draft'])),
     )]
     #[OA\Parameter(
-        name: 'authority[]',
-        description: 'Include only specific authorities (both name or id are valid values)',
+        name: 'fundingProvider',
+        description: 'Filter by funding provider (Förderstelle)',
         in: 'query',
         required: false,
-        schema: new OA\Schema(type: 'array', items: new OA\Items(type: 'string')),
+        schema: new OA\Schema(type: 'string'),
     )]
     #[OA\Parameter(
         name: 'state[]',
@@ -114,7 +114,6 @@ class ApiFinancialSupportsController extends AbstractController
         $qb
             ->select('DISTINCT fs')
             ->from(FinancialSupport::class, 'fs')
-            ->leftJoin('fs.authorities', 'authority')
             ->leftJoin('fs.states', 'state')
             ->leftJoin('fs.topics', 'topic')
             ->leftJoin('fs.instruments', 'instrument')
@@ -132,13 +131,12 @@ class ApiFinancialSupportsController extends AbstractController
                 ->setParameter('isPublic', $request->get('status')[0] === 'public');
         }
 
-        if($request->get('authority') && is_array($request->get('authority'))) {
-            foreach($request->get('authority') as $key => $authority) {
+        if($request->get('fundingProvider') && is_array($request->get('fundingProvider'))) {
+            foreach($request->get('fundingProvider') as $key => $provider) {
                 $qb
-                    ->andWhere('authority.name = :authority'.$key.' OR authority.id = :authorityId'.$key)
-                    ->setParameter('authority'.$key, $authority)
-                    ->setParameter('authorityId'.$key, $authority)
-                ;
+                    ->andWhere('fs.fundingProvider LIKE :provider'.$key.' OR fs.translations LIKE :providerTrans'.$key)
+                    ->setParameter('provider'.$key, '%'.$provider.'%')
+                    ->setParameter('providerTrans'.$key, '%"fundingProvider":"'.$provider.'%');
             }
         }
 

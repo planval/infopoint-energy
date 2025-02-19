@@ -131,13 +131,8 @@
             <div class="row">
                 <div class="col-sm-3">
                     <div class="form-group">
-                        <label for="authority">Förderstelle</label>
-                        <div class="select-wrapper">
-                            <select id="authority" class="form-control" @change="addFilter({type: 'authority', value: $event.target.value}); $event.target.value = null;">
-                                <option></option>
-                                <option v-for="authority in authorities.filter(authority => !authority.context || authority.context === 'financial-support')" :value="authority.name">{{authority.name}}</option>
-                            </select>
-                        </div>
+                        <label for="fundingProvider">Förderstelle</label>
+                        <input id="fundingProvider" type="text" class="form-control" @change="addFilter({type: 'fundingProvider', value: $event.target.value}); $event.target.value = '';">
                     </div>
                 </div>
                 <div class="col-sm-3">
@@ -178,7 +173,7 @@
             <div class="financial-supports-component-filter-tags">
                 <div class="tag" v-for="filter of filters" @click="removeFilter({type: filter.type, value: filter.value})">
                     <strong v-if="filter.type === 'status'">Status:</strong>
-                    <strong v-if="filter.type === 'authority'">Förderstelle:</strong>
+                    <strong v-if="filter.type === 'fundingProvider'">Förderstelle:</strong>
                     <strong v-if="filter.type === 'state'">Kanton:</strong>
                     <strong v-if="filter.type === 'topic'">Thema:</strong>
                     <strong v-if="filter.type === 'instrument'">Unterstützungsart:</strong>

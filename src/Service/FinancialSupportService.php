@@ -55,8 +55,6 @@ class FinancialSupportService {
             'res',
             'startDate',
             'endDate',
-            'authorities',
-            'states',
             'beneficiaries',
             'topics',
             'projectTypes',
@@ -206,33 +204,40 @@ class FinancialSupportService {
             ->setTranslations($translations)
             ->setAppointments($payload['appointments'] ?: [])
             ->setAssignment($payload['assignment'] ?: null)
-            ->setOtherOptionValues($payload['otherOptionValues'] ?: null);
+            ->setOtherOptionValues($payload['otherOptionValues'] ?: null)
+            ->setFundingProvider($translations['de']['fundingProvider'] ?? null);
 
-        foreach($payload['authorities'] as $item) {
-            $entity = null;
-            if(array_key_exists('id', $item) && $item['id']) {
-                $entity = $this->em->getRepository(Authority::class)->find($item['id']);
-            }
-            if(!$entity && array_key_exists('name', $item)) {
-                $entity = $this->em->getRepository(Authority::class)
-                    ->findOneBy(['name' => $item['name']]);
-            }
-            if($entity) {
-                $financialSupport->addAuthority($entity);
+        // Only process authorities if they exist in the payload
+        if (isset($payload['authorities']) && is_array($payload['authorities'])) {
+            foreach($payload['authorities'] as $item) {
+                $entity = null;
+                if(array_key_exists('id', $item) && $item['id']) {
+                    $entity = $this->em->getRepository(Authority::class)->find($item['id']);
+                }
+                if(!$entity && array_key_exists('name', $item)) {
+                    $entity = $this->em->getRepository(Authority::class)
+                        ->findOneBy(['name' => $item['name']]);
+                }
+                if($entity) {
+                    $financialSupport->addAuthority($entity);
+                }
             }
         }
 
-        foreach($payload['states'] as $item) {
-            $entity = null;
-            if(array_key_exists('id', $item) && $item['id']) {
+        // Only process states if they exist in the payload
+        if (isset($payload['states']) && is_array($payload['states'])) {
+            foreach($payload['states'] as $item) {
+                $entity = null;
+                if(array_key_exists('id', $item) && $item['id']) {
                 $entity = $this->em->getRepository(State::class)->find($item['id']);
             }
             if(!$entity && array_key_exists('name', $item)) {
                 $entity = $this->em->getRepository(State::class)
                     ->findOneBy(['name' => $item['name']]);
-            }
-            if($entity) {
-                $financialSupport->addState($entity);
+                }
+                if($entity) {
+                    $financialSupport->addState($entity);
+                }
             }
         }
 

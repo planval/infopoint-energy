@@ -214,7 +214,7 @@
                     <tr>
                         <th>ID</th>
                         <th>Bezeichnung</th>
-                        <th>Förderstellen</th>
+                        <th>Förderstelle</th>
                         <th>Laufzeit</th>
                         <th>PDF</th>
                     </tr>
@@ -236,7 +236,7 @@
                             :class="{'warning': !element.isPublic}">
                             <td>{{ element.id }}</td>
                             <td>{{ translateField(element, 'name', 'de') }}</td>
-                            <td>{{ formatOneToMany(element.authorities, getAuthorityById) }}</td>
+                            <td>{{ element.fundingProvider }}</td>
                             <td>{{ $helpers.formatDate(element.startDate) }} - {{ $helpers.formatDate(element.endDate) }}</td>
                             <td @click.stop>
                                 <a :href="`/api/v1/financial-supports/export/${element.id}-de.pdf`" 

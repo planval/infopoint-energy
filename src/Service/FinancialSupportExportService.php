@@ -396,7 +396,7 @@ class FinancialSupportExportService
                     'id' => $financialSupport->getId(),
                     'titel' => PvTrans::translate($financialSupport, 'name', $locale) ?? '',
                     'logo' => $logoPath ? 'logo/' . basename($logoPath) : null,
-                    'foerderstelle' => implode('<br>', $authorities),
+                    'foerderstelle' => PvTrans::translate($financialSupport, 'fundingProvider', $locale) ?? '',
                     'unterstuetzungsform' => implode('<br>', $instruments),
                     'beguenstigte' => implode('<br>', $beneficiaries),
                     'lead' => PvTrans::translate($financialSupport, 'description', $locale) ?? '',

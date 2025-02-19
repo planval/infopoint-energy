@@ -224,6 +224,10 @@ class FinancialSupport
     #[Groups(['financial_support'])]
     private $otherOptionValues = [];
 
+    #[ORM\Column(name: 'funding_provider', type: 'string', length: 255, nullable: true)]
+    #[Groups(['financial_support'])]
+    private $fundingProvider;
+
     public function __construct()
     {
         $this->authorities = new ArrayCollection();
@@ -1108,6 +1112,30 @@ class FinancialSupport
     public function getOtherOptionValues()
     {
         return $this->otherOptionValues;
+    }
+
+    /**
+     * Set fundingProvider
+     *
+     * @param string|null $fundingProvider
+     *
+     * @return FinancialSupport
+     */
+    public function setFundingProvider($fundingProvider)
+    {
+        $this->fundingProvider = $fundingProvider;
+
+        return $this;
+    }
+
+    /**
+     * Get fundingProvider
+     *
+     * @return string|null
+     */
+    public function getFundingProvider()
+    {
+        return $this->fundingProvider;
     }
 
 }

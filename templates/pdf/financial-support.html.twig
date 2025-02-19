@@ -218,22 +218,10 @@
                     </div>
                 {% endif %}
 
-                {% if financialSupport.authorities|length > 0 %}
+                {% if financialSupport.fundingProvider %}
                     <h2>{{ 'Förderstelle'|trans }}</h2>
                     <div class="list">
-                        {% set authorities = [] %}
-                        {% set other_authority_value = null %}
-                        {% for authority in financialSupport.authorities %}
-                            {% if authority.name == 'Weitere' and financialSupport.otherOptionValues.authority is defined and financialSupport.otherOptionValues.authority is not empty %}
-                                {% set other_authority_value = 'Weitere: ' ~ financialSupport.otherOptionValues.authority %}
-                            {% else %}
-                                {% set authorities = authorities|merge([authority.name|trans]) %}
-                            {% endif %}
-                        {% endfor %}
-                        {% if other_authority_value is not null %}
-                            {% set authorities = authorities|merge([other_authority_value]) %}
-                        {% endif %}
-                        <div class="list-item">{{ authorities|join(', ') }}</div>
+                        <div class="list-item">{{ financialSupport.fundingProvider }}</div>
                     </div>
                 {% endif %}
 

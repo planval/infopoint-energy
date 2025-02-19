@@ -68,6 +68,7 @@ class FinancialSupportService {
             'translations',
             'appointments',
             'assignment',
+            'fundingProvider',
         ])) !== true) {
             return $errors;
         }
@@ -125,6 +126,7 @@ class FinancialSupportService {
             $searchIndex[] = PvTrans::translate($financialSupport, 'application', $locale);
             $searchIndex[] = PvTrans::translate($financialSupport, 'financingRatio', $locale);
             $searchIndex[] = PvTrans::translate($financialSupport, 'res', $locale);
+            $searchIndex[] = PvTrans::translate($financialSupport, 'fundingProvider', $locale);
 
             foreach(PvTrans::translate($financialSupport, 'contacts', $locale) as $contact) {
                 $searchIndex[] = implode(', ', array_filter($contact));
@@ -164,6 +166,18 @@ class FinancialSupportService {
 
     public function applyFinancialSupportPayload($payload, FinancialSupport $financialSupport)
     {
+        // Initialize translations if not set
+        $translations = $payload['translations'] ?: [];
+        if (!isset($translations['de'])) {
+            $translations['de'] = [];
+        }
+
+        // Move fundingProvider to translations
+        if (isset($payload['fundingProvider'])) {
+            $translations['de']['fundingProvider'] = $payload['fundingProvider'];
+            unset($payload['fundingProvider']);
+        }
+
         $financialSupport
             ->setPosition($payload['position'])
             ->setIsPublic($payload['isPublic'])
@@ -189,7 +203,7 @@ class FinancialSupportService {
             ->setProjectTypes(new ArrayCollection())
             ->setInstruments(new ArrayCollection())
             ->setGeographicRegions(new ArrayCollection())
-            ->setTranslations($payload['translations'] ?: [])
+            ->setTranslations($translations)
             ->setAppointments($payload['appointments'] ?: [])
             ->setAssignment($payload['assignment'] ?: null)
             ->setOtherOptionValues($payload['otherOptionValues'] ?: null);

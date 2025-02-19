@@ -47,16 +47,13 @@
 
 
                 <div class="row">
-                    <div class="col-md-6">
-                        <label for="authorities">Förderstelle</label>
-                        <tag-selector id="authorities" :model="financialSupport.authorities"
-                                      :options="authorities.filter(authority => !authority.context || authority.context === 'financial-support')"
-                                      :searchType="'select'"></tag-selector>
-                        <div v-if="hasWeitereAuthority" class="mt-2">
-                            <label v-if="locale === 'de'">Weitere Förderstelle</label>
-                            <label v-else>Weitere Förderstelle (Übersetzung {{ locale.toUpperCase() }})</label>
-                            <input type="text" class="form-control" v-model="currentOtherOptionValues.authority">
-                        </div>
+                    <div class="col-md-6" v-if="locale === 'de'">
+                        <label for="funding_provider">Förderstelle</label>
+                        <input id="funding_provider" type="text" class="form-control" v-model="financialSupport.fundingProvider">
+                    </div>
+                    <div class="col-md-6" v-else>
+                        <label for="funding_provider">Förderstelle (Übersetzung {{ locale.toUpperCase() }})</label>
+                        <input id="funding_provider" type="text" class="form-control" v-model="financialSupport.translations[locale].fundingProvider" :placeholder="translateField(financialSupport, 'fundingProvider', locale)">
                     </div>
                 </div>
 
@@ -438,8 +435,7 @@ export default {
                 assignment: '',
                 links: [],
                 logo: null,
-                authorities: [],
-                states: [],
+                fundingProvider: '',
                 beneficiaries: [],
                 topics: [],
                 projectTypes: [],
@@ -448,9 +444,8 @@ export default {
                 contacts: [],
                 appointments: [],
                 otherOptionValues: {
-                    authority: '',
-                    instrument: '',
-                    beneficiary: ''
+                    beneficiary: '',
+                    instrument: ''
                 },
                 translations: {
                     fr: {
@@ -470,10 +465,10 @@ export default {
                         contacts: [],
                         appointments: [],
                         otherOptionValues: {
-                            authority: '',
-                            instrument: '',
-                            beneficiary: ''
-                        }
+                            beneficiary: '',
+                            instrument: ''
+                        },
+                        fundingProvider: ''
                     },
                     it: {
                         name: '',
@@ -492,10 +487,10 @@ export default {
                         contacts: [],
                         appointments: [],
                         otherOptionValues: {
-                            authority: '',
-                            instrument: '',
-                            beneficiary: ''
-                        }
+                            beneficiary: '',
+                            instrument: ''
+                        },
+                        fundingProvider: ''
                     }
                 },
             },
@@ -533,8 +528,6 @@ export default {
     computed: {
         ...mapState({
             selectedFinancialSupport: state => state.financialSupports.financialSupport,
-            authorities: state => state.authorities.all,
-            states: state => state.states.all,
             beneficiaries: state => state.beneficiaries.all,
             topics: state => state.topics.all,
             projectTypes: state => state.projectTypes.all,
@@ -542,21 +535,16 @@ export default {
             geographicRegions: state => state.geographicRegions.all,
         }),
         ...mapGetters({
-            getAuthorityById: 'authorities/getById',
-            getInstrumentById: 'instruments/getById',
             getBeneficiaryById: 'beneficiaries/getById',
+            getInstrumentById: 'instruments/getById',
         }),
-        hasWeitereAuthority() {
-            return this.financialSupport.authorities && 
-                   this.financialSupport.authorities.some(a => this.getAuthorityById(a.id)?.name === 'Weitere');
+        hasWeitereBeneficiary() {
+            return this.financialSupport.beneficiaries && 
+                   this.financialSupport.beneficiaries.some(b => this.getBeneficiaryById(b.id)?.name === 'Weitere');
         },
         hasWeitereInstrument() {
             return this.financialSupport.instruments && 
                    this.financialSupport.instruments.some(i => this.getInstrumentById(i.id)?.name === 'Weitere');
-        },
-        hasWeitereBeneficiary() {
-            return this.financialSupport.beneficiaries && 
-                   this.financialSupport.beneficiaries.some(b => this.getBeneficiaryById(b.id)?.name === 'Weitere');
         },
         currentOtherOptionValues: {
             get() {
@@ -617,9 +605,8 @@ export default {
             // Initialize otherOptionValues if it doesn't exist
             if (!this.financialSupport.otherOptionValues) {
                 this.financialSupport.otherOptionValues = {
-                    authority: '',
-                    instrument: '',
-                    beneficiary: ''
+                    beneficiary: '',
+                    instrument: ''
                 };
             }
 
@@ -629,18 +616,16 @@ export default {
             // Update otherOptionValues based on locale
             if (this.locale === 'de') {
                 this.financialSupport.otherOptionValues = {
-                    authority: currentValues.authority || '',
-                    instrument: currentValues.instrument || '',
-                    beneficiary: currentValues.beneficiary || ''
+                    beneficiary: currentValues.beneficiary || '',
+                    instrument: currentValues.instrument || ''
                 };
             } else {
                 if (!this.financialSupport.translations[this.locale]) {
                     this.financialSupport.translations[this.locale] = {};
                 }
                 this.financialSupport.translations[this.locale].otherOptionValues = {
-                    authority: currentValues.authority || '',
-                    instrument: currentValues.instrument || '',
-                    beneficiary: currentValues.beneficiary || ''
+                    beneficiary: currentValues.beneficiary || '',
+                    instrument: currentValues.instrument || ''
                 };
             }
 
@@ -669,9 +654,8 @@ export default {
                     // Ensure otherOptionValues is properly initialized
                     if (!this.financialSupport.otherOptionValues) {
                         this.financialSupport.otherOptionValues = {
-                            authority: '',
-                            instrument: '',
-                            beneficiary: ''
+                            beneficiary: '',
+                            instrument: ''
                         };
                     }
                     
@@ -682,9 +666,8 @@ export default {
                         }
                         if (!this.financialSupport.translations[locale].otherOptionValues) {
                             this.financialSupport.translations[locale].otherOptionValues = {
-                                authority: '',
-                                instrument: '',
-                                beneficiary: ''
+                                beneficiary: '',
+                                instrument: ''
                             };
                         }
                     });
@@ -737,12 +720,6 @@ export default {
             switch(type) {
                 case 'beneficiary':
                     this.$store.commit('beneficiaries/add', tag);
-                    break;
-                case 'instrument':
-                    this.$store.commit('instruments/add', tag);
-                    break;
-                case 'authority':
-                    this.$store.commit('authorities/add', tag);
                     break;
             }
         },

@@ -140,7 +140,7 @@ export default {
             return !this.getOptionById(option.id);
           })
           .sort((a, b) => {
-            return a[this.label].localeCompare(b[this.label]);
+            return a.position - b.position;
           });
       }
       return options.filter((option) => {

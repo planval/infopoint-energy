@@ -788,7 +788,8 @@ class FinancialSupportExportService
             error_log("Generating PDF with locale: $locale - Sample translations: Kurzbeschrieb -> " . $translations['Kurzbeschrieb']);
 
             // Format assignment value for display in the PDF
-            if ($financialSupport->getAssignment() === 'beides') {
+            // Apply formatting for all assignment values, not just 'beides'
+            if ($financialSupport->getAssignment()) {
                 $clonedFinancialSupport = clone $financialSupport;
                 $formattedAssignment = $this->formatAssignmentForDisplay($financialSupport->getAssignment(), $locale);
                 $clonedFinancialSupport->setAssignment($formattedAssignment);
@@ -856,13 +857,19 @@ class FinancialSupportExportService
                 return 'Finanziario e Non-Finanziario';
             }
         } else if ($assignment === 'Finanzielle') {
-            if ($locale === 'fr') {
+            // For German, return the original value without modification
+            if ($locale === 'de') {
+                return 'Finanzielle';
+            } else if ($locale === 'fr') {
                 return 'Financière';
             } elseif ($locale === 'it') {
                 return 'Finanziario';
             }
         } else if ($assignment === 'Nicht-Finanzielle') {
-            if ($locale === 'fr') {
+            // For German, return the original value without modification
+            if ($locale === 'de') {
+                return 'Nicht-Finanzielle';
+            } else if ($locale === 'fr') {
                 return 'Non-Financière';
             } elseif ($locale === 'it') {
                 return 'Non-Finanziario';

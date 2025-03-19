@@ -382,8 +382,8 @@
                         <div class="select-wrapper">
                             <select id="zuteilung" class="form-control" v-model="financialSupport.assignment">
                                 <option value=""></option>
-                                <option value="Finanziell">Finanziell</option>
-                                <option value="Nicht-Finanziell">Nicht-Finanziell</option>
+                                <option value="Finanziell">Finanzielle</option>
+                                <option value="Nicht-Finanziell">Nicht-Finanzielle</option>
                                 <option value="beides">beides</option>
                             </select>
                         </div>

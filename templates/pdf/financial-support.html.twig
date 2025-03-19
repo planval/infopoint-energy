@@ -54,6 +54,8 @@
     </head>
 
     <body>
+        {# For debugging purposes #}
+        {# <div style="display:none">Current locale: {{ app.request.locale }}</div> #}
 
         <h1>{{ pv_trans(financialSupport, 'name', app.request.locale) }}</h1>
 
@@ -76,43 +78,44 @@
 
                 {% set additionalInfo = pv_trans(financialSupport, 'additionalInformation', app.request.locale) %}
                 {% if additionalInfo|trim is not empty %}
-                    <h2>{{ 'Kurzbeschrieb' | trans }}</h2>
+                    {# Use translations variable or fall back to trans filter #}
+                    <h2>{{ translations['Kurzbeschrieb'] is defined ? translations['Kurzbeschrieb'] : ('Kurzbeschrieb' | trans) }}</h2>
                     {{ additionalInfo|raw }}
                 {% endif %}
 
                 {% set inclusionCriteria = pv_trans(financialSupport, 'inclusionCriteria', app.request.locale) %}
                 {% if inclusionCriteria|trim is not empty %}
-                    <h2>{{ 'Teilnahmekriterien' | trans }}</h2>
+                    <h2>{{ translations['Teilnahmekriterien'] is defined ? translations['Teilnahmekriterien'] : ('Teilnahmekriterien' | trans) }}</h2>
                     {{ inclusionCriteria|raw }}
                 {% endif %}
 
                 {% set exclusionCriteria = pv_trans(financialSupport, 'exclusionCriteria', app.request.locale) %}
                 {% if exclusionCriteria|trim is not empty %}
-                    <h2>{{ 'Ausschlusskriterien' | trans }}</h2>
+                    <h2>{{ translations['Ausschlusskriterien'] is defined ? translations['Ausschlusskriterien'] : ('Ausschlusskriterien' | trans) }}</h2>
                     {{ exclusionCriteria|raw }}
                 {% endif %}
 
                 {% set financingRatio = pv_trans(financialSupport, 'financingRatio', app.request.locale) %}
                 {% if financingRatio|trim is not empty %}
-                    <h2>{{ 'Finanzierung' | trans }}</h2>
+                    <h2>{{ translations['Finanzierung'] is defined ? translations['Finanzierung'] : ('Finanzierung' | trans) }}</h2>
                     {{ financingRatio|raw }}
                 {% endif %}
 
                 {% set application = pv_trans(financialSupport, 'application', app.request.locale) %}
                 {% if application|trim is not empty %}
-                    <h2>{{ 'Beantragung' |trans }}</h2>
+                    <h2>{{ translations['Beantragung'] is defined ? translations['Beantragung'] : ('Beantragung' |trans) }}</h2>
                     {{ application|raw }}
                 {% endif %}
 
                 {% set applicationTips = pv_trans(financialSupport, 'applicationTips', app.request.locale) %}
                 {% if applicationTips|trim is not empty %}
-                    <h2>{{ 'Tipps zur Beantragung' |trans }}</h2>
+                    <h2>{{ translations['Tipps zur Beantragung'] is defined ? translations['Tipps zur Beantragung'] : ('Tipps zur Beantragung' |trans) }}</h2>
                     {{ applicationTips|raw }}
                 {% endif %}
 
                 {% set contacts = pv_trans(financialSupport, 'contacts', app.request.locale)|default([]) %}
                 {% if contacts is not empty %}
-                    <h2>{{ 'Kontakt' |trans }}</h2>
+                    <h2>{{ translations['Kontakt'] is defined ? translations['Kontakt'] : ('Kontakt' |trans) }}</h2>
                     {% for contact in contacts %}
                         {% if loop.index % 2 == 0 %}
                             <div style="float: right; width: 45%;">
@@ -168,7 +171,7 @@
 
                 {% set links = pv_trans(financialSupport, 'links', app.request.locale)|default([]) %}
                 {% if links is not empty %}
-                    <h2>{{ 'Mehr Informationen' |trans }}</h2>
+                    <h2>{{ translations['Mehr Informationen'] is defined ? translations['Mehr Informationen'] : ('Mehr Informationen' |trans) }}</h2>
                     <div class="list">
                         {% for link in links %}
                             <div class="list-item">
@@ -179,10 +182,11 @@
                     </div>
                 {% endif %}
 
-                {% if financialSupport.appointments is not empty %}
-                    <h2>{{ 'Termine' |trans }}</h2>
+                {% set appointments = pv_trans(financialSupport, 'appointments', app.request.locale)|default([]) %}
+                {% if appointments is not empty %}
+                    <h2>{{ translations['Termine'] is defined ? translations['Termine'] : ('Termine' |trans) }}</h2>
                     <div class="list">
-                        {% for appointment in financialSupport.appointments %}
+                        {% for appointment in appointments %}
                             <div class="list-item">
                                 {{ appointment.date|date('d.m.Y') }}
                                 {% if appointment.description|default %} 
@@ -196,45 +200,51 @@
 
             <div style="float: right; width: 30%;">
                 {% if financialSupport.startDate or financialSupport.endDate %}
-                    <h2>{{ 'Laufzeit' |trans }}</h2>
+                    <h2>{{ translations['Laufzeit'] is defined ? translations['Laufzeit'] : ('Laufzeit' |trans) }}</h2>
                     <div class="list">
                         {% if financialSupport.startDate %}
                             <div class="list-item">
-                                {{ 'Start' |trans }}: {{ financialSupport.startDate|date('d.m.Y') }}
+                                {{ translations['Start'] is defined ? translations['Start'] : ('Start' |trans) }}: {{ financialSupport.startDate|date('d.m.Y') }}
                             </div>
                         {% endif %}
                         {% if financialSupport.endDate %}
                             <div class="list-item">
-                                {{ 'Ende' |trans }}: {{ financialSupport.endDate|date('d.m.Y') }}
+                                {{ translations['Ende'] is defined ? translations['Ende'] : ('Ende' |trans) }}: {{ financialSupport.endDate|date('d.m.Y') }}
                             </div>
                         {% endif %}
                     </div>
                 {% endif %}
 
                 {% if financialSupport.assignment %}
-                    <h2>{{ 'Zuteilung' |trans }}</h2>
+                    <h2>{{ translations['Zuteilung'] is defined ? translations['Zuteilung'] : ('Zuteilung' |trans) }}</h2>
                     <div class="list">
-                        <div class="list-item">{{ financialSupport.assignment }}</div>
+                        <div class="list-item">{{ pv_trans(financialSupport, 'assignment', app.request.locale) }}</div>
                     </div>
                 {% endif %}
 
                 {% if financialSupport.fundingProvider %}
-                    <h2>{{ 'Förderstelle'|trans }}</h2>
+                    <h2>{{ translations['Förderstelle'] is defined ? translations['Förderstelle'] : ('Förderstelle'|trans) }}</h2>
                     <div class="list">
-                        <div class="list-item">{{ financialSupport.fundingProvider }}</div>
+                        <div class="list-item">{{ pv_trans(financialSupport, 'fundingProvider', app.request.locale) }}</div>
                     </div>
                 {% endif %}
 
                 {% if financialSupport.instruments|length > 0 %}
-                    <h2>{{ 'Unterstützungsform'|trans }}</h2>
+                    <h2>{{ translations['Unterstützungsform'] is defined ? translations['Unterstützungsform'] : ('Unterstützungsform'|trans) }}</h2>
                     <div class="list">
                         {% set instruments = [] %}
                         {% set other_instrument_value = null %}
                         {% for instrument in financialSupport.instruments %}
                             {% if instrument.name == 'Weitere' and financialSupport.otherOptionValues.instrument is defined and financialSupport.otherOptionValues.instrument is not empty %}
-                                {% set other_instrument_value = 'Weitere: ' ~ financialSupport.otherOptionValues.instrument %}
+                                {% set weitereText = app.request.locale == 'de' ? 'Weitere' : (app.request.locale == 'fr' ? 'Autres' : 'Altri') %}
+                                {% set otherValue = app.request.locale == 'de' ? financialSupport.otherOptionValues.instrument : 
+                                                     (financialSupport.translations[app.request.locale] is defined and 
+                                                      financialSupport.translations[app.request.locale].otherOptionValues is defined ? 
+                                                      financialSupport.translations[app.request.locale].otherOptionValues.instrument : 
+                                                      financialSupport.otherOptionValues.instrument) %}
+                                {% set other_instrument_value = weitereText ~ ': ' ~ otherValue %}
                             {% else %}
-                                {% set instruments = instruments|merge([instrument.name|trans]) %}
+                                {% set instruments = instruments|merge([pv_trans(instrument, 'name', app.request.locale)]) %}
                             {% endif %}
                         {% endfor %}
                         {% if other_instrument_value is not null %}
@@ -245,15 +255,21 @@
                 {% endif %}
 
                 {% if financialSupport.beneficiaries|length > 0 %}
-                    <h2>{{ 'Begünstigte'|trans }}</h2>
+                    <h2>{{ translations['Begünstigte'] is defined ? translations['Begünstigte'] : ('Begünstigte'|trans) }}</h2>
                     <div class="list">
                         {% set beneficiaries = [] %}
                         {% set other_beneficiary_value = null %}
                         {% for beneficiary in financialSupport.beneficiaries %}
                             {% if beneficiary.name == 'Weitere' and financialSupport.otherOptionValues.beneficiary is defined and financialSupport.otherOptionValues.beneficiary is not empty %}
-                                {% set other_beneficiary_value = 'Weitere: ' ~ financialSupport.otherOptionValues.beneficiary %}
+                                {% set weitereText = app.request.locale == 'de' ? 'Weitere' : (app.request.locale == 'fr' ? 'Autres' : 'Altri') %}
+                                {% set otherValue = app.request.locale == 'de' ? financialSupport.otherOptionValues.beneficiary : 
+                                                     (financialSupport.translations[app.request.locale] is defined and 
+                                                      financialSupport.translations[app.request.locale].otherOptionValues is defined ? 
+                                                      financialSupport.translations[app.request.locale].otherOptionValues.beneficiary : 
+                                                      financialSupport.otherOptionValues.beneficiary) %}
+                                {% set other_beneficiary_value = weitereText ~ ': ' ~ otherValue %}
                             {% else %}
-                                {% set beneficiaries = beneficiaries|merge([beneficiary.name|trans]) %}
+                                {% set beneficiaries = beneficiaries|merge([pv_trans(beneficiary, 'name', app.request.locale)]) %}
                             {% endif %}
                         {% endfor %}
                         {% if other_beneficiary_value is not null %}
@@ -264,7 +280,7 @@
                 {% endif %}
 
                 {% if financialSupport.topics is not empty %}
-                    <h2>{{ 'Themenschwerpunkt' |trans }}</h2>
+                    <h2>{{ translations['Themenschwerpunkt'] is defined ? translations['Themenschwerpunkt'] : ('Themenschwerpunkt' |trans) }}</h2>
                     <div class="list">
                         {% for topic in financialSupport.topics %}
                             <div class="list-item">{{ pv_trans(topic, 'name', app.request.locale) }}</div>
@@ -273,7 +289,7 @@
                 {% endif %}
 
                 {% if financialSupport.projectTypes is not empty %}
-                    <h2>{{ 'Innovationsphasen' |trans }}</h2>
+                    <h2>{{ translations['Innovationsphasen'] is defined ? translations['Innovationsphasen'] : ('Innovationsphasen' |trans) }}</h2>
                     <div class="list">
                         {% for projectType in financialSupport.projectTypes %}
                             <div class="list-item">{{ pv_trans(projectType, 'name', app.request.locale) }}</div>
@@ -282,7 +298,7 @@
                 {% endif %}
 
                 {% if financialSupport.geographicRegions is not empty %}
-                    <h2>{{ 'Fördergebiet' |trans }}</h2>
+                    <h2>{{ translations['Fördergebiet'] is defined ? translations['Fördergebiet'] : ('Fördergebiet' |trans) }}</h2>
                     <div class="list">
                         {% for geographicRegion in financialSupport.geographicRegions %}
                             <div class="list-item">{{ pv_trans(geographicRegion, 'name', app.request.locale) }}</div>

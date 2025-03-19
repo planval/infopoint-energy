@@ -856,7 +856,7 @@ class FinancialSupportExportService
             } elseif ($locale === 'it') {
                 return 'Finanziario e Non-Finanziario';
             }
-        } else if ($assignment === 'Finanzielle') {
+        } else if ($assignment === 'Finanzielle' || $assignment === 'Finanziell') {
             // For German, return the original value without modification
             if ($locale === 'de') {
                 return 'Finanzielle';
@@ -865,7 +865,7 @@ class FinancialSupportExportService
             } elseif ($locale === 'it') {
                 return 'Finanziario';
             }
-        } else if ($assignment === 'Nicht-Finanzielle') {
+        } else if ($assignment === 'Nicht-Finanzielle' || $assignment === 'Nicht-Finanziell') {
             // For German, return the original value without modification
             if ($locale === 'de') {
                 return 'Nicht-Finanzielle';
@@ -1038,14 +1038,18 @@ class FinancialSupportExportService
                     } elseif ($locale === 'it') {
                         $assignment = 'Finanziario<br>Non-Finanziario';
                     }
-                } else if ($assignment === 'Finanzielle') {
-                    if ($locale === 'fr') {
+                } else if ($assignment === 'Finanzielle' || $assignment === 'Finanziell') {
+                    if ($locale === 'de') {
+                        $assignment = 'Finanzielle';
+                    } elseif ($locale === 'fr') {
                         $assignment = 'Financière';
                     } elseif ($locale === 'it') {
                         $assignment = 'Finanziario';
                     }
-                } else if ($assignment === 'Nicht-Finanzielle') {
-                    if ($locale === 'fr') {
+                } else if ($assignment === 'Nicht-Finanzielle' || $assignment === 'Nicht-Finanziell') {
+                    if ($locale === 'de') {
+                        $assignment = 'Nicht-Finanzielle';
+                    } elseif ($locale === 'fr') {
                         $assignment = 'Non-Financière';
                     } elseif ($locale === 'it') {
                         $assignment = 'Non-Finanziario';

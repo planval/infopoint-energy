@@ -342,7 +342,8 @@ class ApiFinancialSupportsController extends AbstractController
     )]
     #[OA\Tag(name: 'Financial Supports')]
     public function exportPdf(Request $request, EntityManagerInterface $em,
-                               TranslatorInterface $translator): Response
+                              TranslatorInterface $translator, 
+                              FinancialSupportExportService $exportService): Response
     {
         $financialSupport = $em->getRepository(FinancialSupport::class)
             ->find($request->get('id'));
@@ -353,6 +354,14 @@ class ApiFinancialSupportsController extends AbstractController
 
         if(!$financialSupport->getIsPublic() && !$this->isGranted('ROLE_EDITOR')) {
             throw $this->createNotFoundException();
+        }
+
+        // Clone the financial support to avoid changing the original entity
+        if ($financialSupport->getAssignment()) {
+            $clonedFinancialSupport = clone $financialSupport;
+            $formattedAssignment = $exportService->formatAssignmentForDisplay($financialSupport->getAssignment(), $request->getLocale());
+            $clonedFinancialSupport->setAssignment($formattedAssignment);
+            $financialSupport = $clonedFinancialSupport;
         }
 
         $mpdf = new Mpdf([
@@ -413,6 +422,5 @@ class ApiFinancialSupportsController extends AbstractController
         $response->deleteFileAfterSend(true);
 
         return $response;
-
     }
 }

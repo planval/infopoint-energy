@@ -842,7 +842,7 @@ class FinancialSupportExportService
      * @param string $locale The current locale
      * @return string The formatted assignment value
      */
-    private function formatAssignmentForDisplay(?string $assignment, string $locale): string
+    public function formatAssignmentForDisplay(?string $assignment, string $locale): string
     {
         if (!$assignment) {
             return '';

@@ -12,6 +12,8 @@ parameters:
     chmos_certificate: '%env(resolve:CHMOS_CERTIFICATE)%'
     tpoint_url: '%env(TPOINT_URL)%'
     node_js: '%env(NODE_JS)%'
+    ftp_deployment_production: '%env(FTP_DEPLOYMENT_PRODUCTION)%'
+    ftp_deployment_staging: '%env(FTP_DEPLOYMENT_STAGING)%'
 
 services:
     # default configuration for services in *this* file
@@ -46,4 +48,8 @@ services:
     App\Service\TpointService:
         bind:
             $url: '%env(TPOINT_URL)%'
+
+    App\Service\FtpService:
+        arguments:
+            $params: '@parameter_bag'
 

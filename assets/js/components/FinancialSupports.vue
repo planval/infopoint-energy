@@ -13,7 +13,7 @@
             <div class="financial-supports-component-title-actions">
                 <router-link :to="'/financial-supports/add'" class="button primary">Neuen Eintrag erstellen</router-link>
                 <button @click="exportAll" class="button primary">Export</button>
-                <button @click="showPublishDialog" class="button primary">Förderhilfen veröffentlichen</button>
+                <button @click="showPublishDialog" class="button primary">Förderhilfen publizieren</button>
             </div>
 
         </div>

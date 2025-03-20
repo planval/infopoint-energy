@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\File;
 use App\Entity\FinancialSupport;
 use App\Service\FinancialSupportService;
+use App\Service\FtpService;
 use App\Util\PvTrans;
 use Doctrine\ORM\EntityManagerInterface;
 use Mpdf\Mpdf;
@@ -22,6 +23,7 @@ use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use App\Service\FinancialSupportExportService;
+use \Imagick;
 
 #[Route(path: '/api/v1/financial-supports', name: 'api_financial_supports_')]
 class ApiFinancialSupportsController extends AbstractController
@@ -422,5 +424,82 @@ class ApiFinancialSupportsController extends AbstractController
         $response->deleteFileAfterSend(true);
 
         return $response;
+    }
+
+    #[Route(path: '/publish', name: 'publish', methods: ['POST'])]
+    #[IsGranted('ROLE_EDITOR')]
+    #[OA\RequestBody(
+        description: 'Environment to publish to',
+        content: new OA\JsonContent(
+            properties: [
+                new OA\Property(property: 'environment', type: 'string', enum: ['production', 'staging'])
+            ]
+        )
+    )]
+    #[OA\Response(
+        response: 200,
+        description: 'Result of publishing operation',
+        content: new OA\JsonContent(
+            properties: [
+                new OA\Property(property: 'success', type: 'boolean'),
+                new OA\Property(property: 'message', type: 'string')
+            ]
+        )
+    )]
+    #[OA\Tag(name: 'Financial Supports')]
+    #[Security(name: 'cookieAuth')]
+    public function publish(
+        Request $request, 
+        FinancialSupportExportService $exportService,
+        FtpService $ftpService
+    ): JsonResponse
+    {
+        try {
+            // Get the environment from the request body
+            $data = json_decode($request->getContent(), true);
+            $environment = $data['environment'] ?? 'staging';
+            
+            // Validate environment
+            if (!in_array($environment, ['production', 'staging'])) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Invalid environment specified. Valid values are "production" or "staging".'
+                ], 400);
+            }
+            
+            // Generate the ZIP file
+            $zipPath = $exportService->exportAllToZip();
+            
+            if (!file_exists($zipPath)) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Failed to generate ZIP file'
+                ], 500);
+            }
+            
+            // Upload the file to FTP
+            $result = $ftpService->uploadFile($zipPath, $environment);
+            
+            // Clean up the temporary file
+            @unlink($zipPath);
+            
+            if (!$result['success']) {
+                return $this->json([
+                    'success' => false,
+                    'error' => $result['message']
+                ], 500);
+            }
+            
+            return $this->json([
+                'success' => true,
+                'message' => $result['message']
+            ]);
+            
+        } catch (\Throwable $e) {
+            return $this->json([
+                'success' => false,
+                'error' => 'Error during publish operation: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

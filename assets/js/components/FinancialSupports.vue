@@ -13,6 +13,7 @@
             <div class="financial-supports-component-title-actions">
                 <router-link :to="'/financial-supports/add'" class="button primary">Neuen Eintrag erstellen</router-link>
                 <button @click="exportAll" class="button primary">Export</button>
+                <button @click="showPublishDialog" class="button primary">Förderhilfen veröffentlichen</button>
             </div>
 
         </div>
@@ -262,6 +263,54 @@
 
         </transition>
 
+        <!-- Add modal for publish environment selection -->
+        <div class="modal" v-if="showPublishModal">
+            <div class="modal-background" @click="showPublishModal = false"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Förderhilfen publizieren</h3>
+                    <button class="close-button" @click="showPublishModal = false">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <!-- Show environment selection if not confirming -->
+                    <div v-if="!confirmingPublish">
+                        <p>Wählen Sie die Umgebung für die Publikation:</p>
+                        <div class="publish-options">
+                            <button @click="confirmPublish('production')" class="button primary" :disabled="isPublishing">
+                                Live-Umgebung
+                            </button>
+                            <button @click="confirmPublish('staging')" class="button primary" :disabled="isPublishing">
+                                Test-Umgebung
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Show confirmation if user selected an environment -->
+                    <div v-if="confirmingPublish">
+                        <p class="confirmation-message">
+                            Wollen Sie wirklich zur <strong>{{ confirmingEnvironment === 'production' ? 'Live-Umgebung' : 'Test-Umgebung' }}</strong> publizieren?
+                        </p>
+                        <div class="confirmation-buttons">
+                            <button @click="cancelConfirmation()" class="button warning" :disabled="isPublishing">
+                                Abbrechen
+                            </button>
+                            <button @click="publishToEnvironment(confirmingEnvironment)" class="button success" :disabled="isPublishing">
+                                Bestätigen
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div v-if="isPublishing" class="publishing-status">
+                        <div class="loading-indicator"></div>
+                        <p>Publikation läuft...</p>
+                    </div>
+                    <div v-if="publishStatus" class="publish-status" :class="{'success': publishStatus.success, 'error': !publishStatus.success}">
+                        <p>{{ publishStatus.message }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
 </template>
@@ -282,6 +331,11 @@
                 limit: 100,
                 offset: 0,
                 isLoadedFully: false,
+                showPublishModal: false,
+                isPublishing: false,
+                publishStatus: null,
+                confirmingPublish: false,
+                confirmingEnvironment: null,
             };
         },
         components: {
@@ -695,6 +749,59 @@
                     // You may want to show an error message to the user here
                 }
             },
+            showPublishDialog() {
+                this.showPublishModal = true;
+                this.publishStatus = null;
+                this.confirmingPublish = false;
+                this.confirmingEnvironment = null;
+            },
+            confirmPublish(environment) {
+                this.confirmingEnvironment = environment;
+                this.confirmingPublish = true;
+            },
+            cancelConfirmation() {
+                this.confirmingPublish = false;
+                this.confirmingEnvironment = null;
+            },
+            async publishToEnvironment(environment) {
+                this.isPublishing = true;
+                this.publishStatus = null;
+                
+                try {
+                    const response = await fetch('/api/v1/financial-supports/publish', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ environment }),
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        this.publishStatus = {
+                            success: true,
+                            message: `Publikation auf ${environment === 'production' ? 'Live-Umgebung' : 'Test-Umgebung'} erfolgreich.`
+                        };
+                        // Reset confirmation state after successful publish
+                        this.confirmingPublish = false;
+                        this.confirmingEnvironment = null;
+                    } else {
+                        this.publishStatus = {
+                            success: false,
+                            message: `Fehler bei der Publikation: ${result.error || 'Unbekannter Fehler'}`
+                        };
+                    }
+                } catch (error) {
+                    console.error('Error publishing financial supports:', error);
+                    this.publishStatus = {
+                        success: false,
+                        message: 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.'
+                    };
+                } finally {
+                    this.isPublishing = false;
+                }
+            },
         },
         created () {
             this.loadFilter();
@@ -709,3 +816,97 @@
         },
     }
 </script>
+
+<style>
+/* Add this to the existing styles or in your CSS file */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: #fff;
+    border-radius: 4px;
+    padding: 20px;
+    width: 500px;
+    max-width: 90%;
+    position: relative;
+    z-index: 1001;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+.close-button {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.publish-options {
+    display: flex;
+    justify-content: space-around;
+    margin: 20px 0;
+}
+
+.publishing-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 15px 0;
+}
+
+.publish-status {
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 15px;
+}
+
+.publish-status.success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.publish-status.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.confirmation-message {
+    text-align: center;
+    font-size: 1.1em;
+    margin: 15px 0;
+}
+
+.confirmation-buttons {
+    display: flex;
+    justify-content: space-around;
+    margin: 20px 0;
+}
+</style>

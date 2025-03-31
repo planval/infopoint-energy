@@ -996,7 +996,7 @@ class FinancialSupportExportService
                 foreach ($appointmentsList ?? [] as $appointment) {
                     if (isset($appointment['date'])) {
                         $date = new \DateTime($appointment['date']);
-                        $appointments[] = $date->format('d.m.Y');
+                        $appointments[] = $date->format('Y-m-d H:i:s');
                         if (isset($appointment['description'])) {
                             $appointmentTexts[] = $date->format('d.m.Y') . ': ' . strip_tags($appointment['description']);
                         }

@@ -1013,7 +1013,7 @@ class FinancialSupportExportService
                     if (!empty($link['value']) && !empty($link['label'])) {
                         $mehrinfos[] = sprintf(
                             '<a href="%s" target="_blank" class="contLinks" title="%s">%s</a>',
-                            $link['value'],
+                            stristr($link['value'], '://') ? $link['value'] : 'https://'.$link['value'],
                             htmlspecialchars($link['label']),
                             htmlspecialchars($link['label'])
                         );

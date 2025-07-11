@@ -2,108 +2,457 @@
 
 namespace App\Service;
 
-use Symfony\Component\DependencyInjection\ParameterBagInterface;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
 /**
- * Service to handle FTP operations
+ * Service to handle FTP operations for direct file transfer
  */
 class FtpService
 {
+    private array $configs;
+    private LoggerInterface $logger;
     private $params;
 
-    public function __construct(ParameterBagInterface $params)
+    public function __construct(ParameterBagInterface $params, LoggerInterface $logger)
     {
         $this->params = $params;
+        $this->logger = $logger;
+        
+        // Initialize configs from parameters
+        $this->configs = [
+            'staging' => [
+                'host' => $this->params->get('ftp_staging_host', ''),
+                'port' => 21,
+                'username' => $this->params->get('ftp_staging_username', ''),
+                'password' => $this->params->get('ftp_staging_password', ''),
+                'passive' => false,
+                'timeout' => 30,
+                'base_path' => $this->params->get('ftp_staging_folder', '')
+            ],
+            'production' => [
+                'host' => $this->params->get('ftp_production_host', ''),
+                'port' => 21,
+                'username' => $this->params->get('ftp_production_username', ''),
+                'password' => $this->params->get('ftp_production_password', ''),
+                'passive' => false,
+                'timeout' => 30,
+                'base_path' => $this->params->get('ftp_production_folder', '')
+            ]
+        ];
     }
 
+
     /**
-     * Upload a file to an FTP server
-     *
-     * @param string $localFilePath The path to the local file
-     * @param string $environment The environment to upload to ('production' or 'staging')
-     * @return array Result of the upload operation with success status and message
+     * Upload files directly to FTP server
      */
-    public function uploadFile(string $localFilePath, string $environment): array
+    public function uploadFiles(string $localBasePath, array $files, string $environment): array
     {
-        // Get the appropriate FTP URL from environment variables
-        $ftpUrl = $environment === 'production' 
-            ? $this->params->get('ftp_deployment_production')
-            : $this->params->get('ftp_deployment_staging');
-
-        if (empty($ftpUrl) || $ftpUrl === 'ftp://<username>:<password>@<hostname>:<port>/<path>') {
+        $config = $this->configs[$environment] ?? null;
+        
+        if (!$config) {
             return [
                 'success' => false,
-                'message' => "FTP configuration for $environment environment is not set"
+                'error' => "Configuration not found for environment: {$environment}"
             ];
         }
 
-        // Parse the FTP URL
-        $parsedUrl = parse_url($ftpUrl);
-        if ($parsedUrl === false) {
+        $connection = $this->createConnection($config);
+        
+        if (!$connection) {
             return [
                 'success' => false,
-                'message' => "Invalid FTP URL format"
-            ];
-        }
-
-        // Extract components
-        $host = $parsedUrl['host'] ?? '';
-        $port = $parsedUrl['port'] ?? 21;
-        $username = $parsedUrl['user'] ?? '';
-        $password = $parsedUrl['pass'] ?? '';
-        $remotePath = $parsedUrl['path'] ?? '/';
-
-        // Make sure the remote path ends with a slash
-        if (substr($remotePath, -1) !== '/') {
-            $remotePath .= '/';
-        }
-
-        // Get the filename from the local path
-        $filename = basename($localFilePath);
-        $remoteFilePath = $remotePath . $filename;
-
-        // Establish FTP connection
-        $conn = @ftp_connect($host, $port);
-        if (!$conn) {
-            return [
-                'success' => false,
-                'message' => "Could not connect to FTP server: $host:$port"
+                'error' => 'Failed to connect to FTP server'
             ];
         }
 
         try {
-            // Login to FTP server
-            if (!@ftp_login($conn, $username, $password)) {
-                throw new \Exception("FTP login failed with username: $username");
+            // Step 1: Upload files to *_new folders
+            $this->logger->info('Starting atomic upload to *_new folders');
+            
+            $totalFiles = count($files);
+            $uploadedFiles = 0;
+            $failedFiles = [];
+            $uploadResults = [];
+            
+            foreach ($files as $file) {
+                try {
+                    // Upload to *_new folder
+                    $newRemotePath = $this->getNewRemotePath($file['remote'], $environment);
+                    $result = $this->uploadSingleFile(
+                        $connection,
+                        $localBasePath . '/' . $file['local'],
+                        $newRemotePath
+                    );
+                    
+                    $uploadResults[] = $result;
+                    
+                    if ($result['success']) {
+                        $uploadedFiles++;
+                        $this->logger->info("Upload progress: {$uploadedFiles}/{$totalFiles} - {$newRemotePath}");
+                    } else {
+                        $failedFiles[] = $file;
+                        $this->logger->error("Failed to upload: {$newRemotePath}");
+                    }
+                    
+                } catch (\Exception $e) {
+                    $failedFiles[] = array_merge($file, ['error' => $e->getMessage()]);
+                    $this->logger->error("Exception during upload: {$file['remote']} - {$e->getMessage()}");
+                }
             }
-
-            // Enable passive mode (better for firewalls and NAT)
-            ftp_pasv($conn, true);
-
-            // Check if the remote directory exists
-            $this->ensureDirectoryExists($conn, $remotePath);
-
-            // Upload the file
-            if (!@ftp_put($conn, $remoteFilePath, $localFilePath, FTP_BINARY)) {
-                throw new \Exception("Failed to upload file to $remoteFilePath");
+            
+            // If upload failed, clean up and return error
+            if (!empty($failedFiles)) {
+                $this->logger->error('Upload failed, cleaning up *_new folders');
+                $this->cleanupNewFolders($connection, $environment);
+                ftp_close($connection);
+                
+                return [
+                    'success' => false,
+                    'error' => 'Upload failed, see logs for details',
+                    'total_files' => $totalFiles,
+                    'uploaded_files' => $uploadedFiles,
+                    'failed_files' => $failedFiles
+                ];
             }
-
+            
+            // Step 2: Clean up old folders from previous deployment
+            $this->logger->info('Cleaning up *_old folders from previous deployment');
+            try {
+                $this->cleanupOldFolders($connection, $environment);
+            } catch (\Exception $e) {
+                $this->logger->warning('Failed to cleanup old folders, continuing anyway: ' . $e->getMessage());
+            }
+            
+            // Step 3: Atomic switchover - rename current to old, new to current
+            $this->logger->info('Performing atomic switchover');
+            $switchoverSuccess = $this->performAtomicSwitchover($connection, $environment);
+            
+            ftp_close($connection);
+            
+            if (!$switchoverSuccess) {
+                return [
+                    'success' => false,
+                    'error' => 'Atomic switchover failed'
+                ];
+            }
+            
             return [
-                'success' => true,
-                'message' => "File successfully uploaded to $environment environment"
+                'success' => empty($failedFiles),
+                'message' => empty($failedFiles) 
+                    ? "Successfully uploaded {$uploadedFiles} files to {$environment}"
+                    : "Uploaded {$uploadedFiles}/{$totalFiles} files to {$environment}",
+                'total_files' => $totalFiles,
+                'uploaded_files' => $uploadedFiles,
+                'failed_files' => $failedFiles,
+                'details' => $uploadResults
             ];
+            
         } catch (\Exception $e) {
+            if ($connection) {
+                ftp_close($connection);
+            }
+            
+            $this->logger->error('FTP upload failed', [
+                'environment' => $environment,
+                'error' => $e->getMessage()
+            ]);
+            
             return [
                 'success' => false,
-                'message' => $e->getMessage()
+                'error' => 'FTP upload failed: ' . $e->getMessage()
             ];
-        } finally {
-            // Close the connection
-            if ($conn) {
-                ftp_close($conn);
+        }
+    }
+
+    /**
+     * Test FTP connection
+     */
+    public function testConnection(string $environment): bool
+    {
+        $config = $this->configs[$environment] ?? null;
+        
+        if (!$config) {
+            return false;
+        }
+
+        $connection = $this->createConnection($config);
+        
+        if ($connection) {
+            ftp_close($connection);
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * Create FTP connection
+     */
+    private function createConnection(array $config)
+    {
+        $connection = ftp_connect($config['host'], $config['port'] ?? 21, $config['timeout'] ?? 30);
+        
+        if (!$connection) {
+            $this->logger->error('Failed to connect to FTP server', ['host' => $config['host']]);
+            return false;
+        }
+        
+        if (!ftp_login($connection, $config['username'], $config['password'])) {
+            $this->logger->error('FTP login failed', ['username' => $config['username']]);
+            ftp_close($connection);
+            return false;
+        }
+        
+        // Set passive mode if configured
+        if ($config['passive'] ?? true) {
+            if (!ftp_pasv($connection, true)) {
+                $this->logger->warning('Failed to set passive mode');
+            }
+        }
+        
+        return $connection;
+    }
+
+
+    /**
+     * Upload a single file
+     */
+    private function uploadSingleFile($connection, string $localFile, string $remoteFile): array
+    {
+        // Ensure local file exists
+        if (!file_exists($localFile)) {
+            return [
+                'local_file' => $localFile,
+                'remote_file' => $remoteFile,
+                'success' => false,
+                'error' => 'Local file does not exist',
+                'size' => 0
+            ];
+        }
+
+        // Ensure remote directory exists
+        $this->ensureRemoteDirectoryExists($connection, dirname($remoteFile));
+        
+        $result = ftp_put($connection, $remoteFile, $localFile, FTP_BINARY);
+        
+        return [
+            'local_file' => $localFile,
+            'remote_file' => $remoteFile,
+            'success' => $result,
+            'size' => filesize($localFile),
+            'error' => $result ? null : 'FTP upload failed'
+        ];
+    }
+
+    /**
+     * Ensure remote directory exists
+     */
+    private function ensureRemoteDirectoryExists($connection, string $remotePath): void
+    {
+        if ($remotePath === '.' || $remotePath === '/' || empty($remotePath)) {
+            return;
+        }
+
+        $parts = explode('/', ltrim($remotePath, '/'));
+        $currentPath = '';
+        
+        foreach ($parts as $part) {
+            $currentPath .= '/' . $part;
+            
+            if (!$this->isDirectory($connection, $currentPath)) {
+                if (!ftp_mkdir($connection, $currentPath)) {
+                    $this->logger->error("Failed to create directory: {$currentPath}");
+                } else {
+                    $this->logger->info("Created directory: {$currentPath}");
+                }
             }
         }
     }
+
+    /**
+     * Check if remote path is a directory
+     */
+    private function isDirectory($connection, string $path): bool
+    {
+        $originalPath = ftp_pwd($connection);
+        $result = @ftp_chdir($connection, $path);
+        
+        if ($result) {
+            ftp_chdir($connection, $originalPath);
+        }
+        
+        return $result;
+    }
+
+    /**
+     * Get remote path for environment
+     */
+    private function getRemotePath(string $relativePath, string $environment): string
+    {
+        $config = $this->configs[$environment] ?? null;
+        $basePath = $config ? $config['base_path'] : '';
+        return $basePath . '/' . ltrim($relativePath, '/');
+    }
+
+    /**
+     * Get remote path for *_new folders
+     */
+    private function getNewRemotePath(string $relativePath, string $environment): string
+    {
+        $config = $this->configs[$environment] ?? null;
+        $basePath = $config ? $config['base_path'] : '';
+        
+        // Convert data/file.json to data_new/file.json
+        $parts = explode('/', ltrim($relativePath, '/'), 2);
+        if (count($parts) === 2) {
+            $folder = $parts[0];
+            $file = $parts[1];
+            return $basePath . '/' . $folder . '_new/' . $file;
+        }
+        
+        return $basePath . '/' . ltrim($relativePath, '/') . '_new';
+    }
+
+    /**
+     * Clean up *_new folders (on upload failure)
+     */
+    private function cleanupNewFolders($connection, string $environment): void
+    {
+        $config = $this->configs[$environment] ?? null;
+        $basePath = $config ? $config['base_path'] : '';
+        
+        $newFolders = [
+            $basePath . '/data_new',
+            $basePath . '/logos_new',
+            $basePath . '/pdfs_new'
+        ];
+        
+        foreach ($newFolders as $folder) {
+            $this->removeDirectory($connection, $folder);
+        }
+    }
+
+    /**
+     * Clean up *_old folders from previous deployment
+     */
+    private function cleanupOldFolders($connection, string $environment): void
+    {
+        $config = $this->configs[$environment] ?? null;
+        $basePath = $config ? $config['base_path'] : '';
+        
+        $oldFolders = [
+            $basePath . '/data_old',
+            $basePath . '/logos_old',
+            $basePath . '/pdfs_old'
+        ];
+        
+        foreach ($oldFolders as $folder) {
+            $this->removeDirectory($connection, $folder);
+        }
+    }
+
+    /**
+     * Perform atomic switchover: current → old, new → current
+     */
+    private function performAtomicSwitchover($connection, string $environment): bool
+    {
+        $config = $this->configs[$environment] ?? null;
+        $basePath = $config ? $config['base_path'] : '';
+        
+        $folders = ['data', 'logos', 'pdfs'];
+        
+        foreach ($folders as $folder) {
+            $current = $basePath . '/' . $folder;
+            $old = $basePath . '/' . $folder . '_old';
+            $new = $basePath . '/' . $folder . '_new';
+            
+            // Check if new folder exists
+            if (!$this->isDirectory($connection, $new)) {
+                $this->logger->error("New folder does not exist: {$new}");
+                return false;
+            }
+            
+            // Rename current to old (if current exists)
+            if ($this->isDirectory($connection, $current)) {
+                if (!ftp_rename($connection, $current, $old)) {
+                    $this->logger->error("Failed to rename {$current} to {$old}");
+                    return false;
+                }
+                $this->logger->info("Renamed {$current} to {$old}");
+            }
+            
+            // Rename new to current
+            if (!ftp_rename($connection, $new, $current)) {
+                $this->logger->error("Failed to rename {$new} to {$current}");
+                // Try to rollback - rename old back to current
+                if ($this->isDirectory($connection, $old)) {
+                    ftp_rename($connection, $old, $current);
+                }
+                return false;
+            }
+            $this->logger->info("Renamed {$new} to {$current}");
+        }
+        
+        return true;
+    }
+
+    /**
+     * Remove directory and all its contents
+     */
+    private function removeDirectory($connection, string $remotePath): void
+    {
+        if (!$this->isDirectory($connection, $remotePath)) {
+            return;
+        }
+        
+        // List files in folder with error handling
+        $files = @ftp_nlist($connection, $remotePath);
+        
+        if ($files === false) {
+            $this->logger->warning("Could not list files in directory: {$remotePath}");
+            return;
+        }
+        
+        foreach ($files as $file) {
+            $fileName = basename($file);
+            
+            // Skip system folders
+            if ($this->isSystemFolder($fileName)) {
+                continue;
+            }
+            
+            $fullPath = $remotePath . '/' . $fileName;
+            
+            // Check if it's a directory
+            if ($this->isDirectory($connection, $fullPath)) {
+                $this->removeDirectory($connection, $fullPath); // Recursive
+                if (ftp_rmdir($connection, $fullPath)) {
+                    $this->logger->info("Removed directory: {$fullPath}");
+                }
+            } else {
+                if (ftp_delete($connection, $fullPath)) {
+                    $this->logger->info("Removed file: {$fullPath}");
+                }
+            }
+        }
+        
+        // Remove the directory itself
+        if (ftp_rmdir($connection, $remotePath)) {
+            $this->logger->info("Removed directory: {$remotePath}");
+        }
+    }
+
+
+    /**
+     * Check if folder is a system folder
+     */
+    private function isSystemFolder(string $folderName): bool
+    {
+        // System folders that should be skipped during processing
+        return in_array($folderName, ['.', '..']);
+    }
+
 
     /**
      * Ensure the directory path exists on the FTP server

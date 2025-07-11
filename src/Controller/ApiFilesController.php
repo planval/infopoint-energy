@@ -117,7 +117,7 @@ class ApiFilesController extends AbstractController
         return $this->json($result);
     }
     
-    #[Route(path: '/view/{id}.{extension}', name: 'view_image', requirements: ['extension' => 'jpg|png|gif|JPG|PNG|GIF'], methods: ['GET'])]
+    #[Route(path: '/view/{id}.{extension}', name: 'view_image', requirements: ['extension' => 'jpg|png|gif|JPG|PNG|GIF|svg|SVG'], methods: ['GET'])]
     public function viewImage(Request $request, EntityManagerInterface $em,
                               NormalizerInterface $normalizer): Response
     {
@@ -131,15 +131,22 @@ class ApiFilesController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        $imagick = new \Imagick();
         $data = stream_get_contents($file->getData());
         $data = count(explode(';base64,', $data)) >= 2 ? explode(';base64,', $data, 2)[1] : $data;
+        
+        // Handle SVG files directly without ImageMagick processing
+        if (strtolower($file->getExtension()) === 'svg') {
+            $response = new Response(base64_decode($data), 200, [
+                'Content-Type' => 'image/svg+xml',
+            ]);
+        } else {
+            $imagick = new \Imagick();
+            $imagick->readImageBlob(base64_decode($data));
 
-        $imagick->readImageBlob(base64_decode($data));
-
-        $response = new Response($imagick->getImageBlob(), 200, [
-            'Content-Type' => $imagick->getImageMimeType(),
-        ]);
+            $response = new Response($imagick->getImageBlob(), 200, [
+                'Content-Type' => $imagick->getImageMimeType(),
+            ]);
+        }
 
         $response->setMaxAge(3600);
         $response->setSharedMaxAge(3600);

@@ -174,29 +174,20 @@ class FinancialSupportExportService
             
             error_log('Exporting ' . count($financialSupports) . ' financial supports');
             
-            // Generate JSONs first to ensure logos are created (using our direct DB fetch if needed)
-            error_log("Starting JSON generation and logo processing for DE");
+            // Generate JSON files in data folder with correct naming
+            error_log("Starting JSON generation in data folder");
+            $dataDir = $exportDir . '/data';
+            mkdir($dataDir, 0777, true);
+            
+            $this->generateJsonFiles($dataDir);
+            
+            error_log("Generated JSON files in data folder");
+            
+            // Still process logos for the existing logo directory structure
+            error_log("Processing logos for backward compatibility");
             $deJson = $this->generateLocalizedJson($financialSupports, $pdfDir, $logoDir, 'de');
-            if (!file_put_contents($exportDir . '/de.json', json_encode($deJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))) {
-                error_log("Failed to write DE JSON file");
-                throw new \RuntimeException("Failed to write DE JSON file");
-            }
-            $this->checkLogoDirectory($logoDir, 'After generating DE JSON');
-            
-            error_log("Starting JSON generation and logo processing for FR");
             $frJson = $this->generateLocalizedJson($financialSupports, $pdfDir, $logoDir, 'fr');
-            if (!file_put_contents($exportDir . '/fr.json', json_encode($frJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))) {
-                error_log("Failed to write FR JSON file");
-                throw new \RuntimeException("Failed to write FR JSON file");
-            }
-            $this->checkLogoDirectory($logoDir, 'After generating FR JSON');
-            
-            error_log("Starting JSON generation and logo processing for IT");
             $itJson = $this->generateLocalizedJson($financialSupports, $pdfDir, $logoDir, 'it');
-            if (!file_put_contents($exportDir . '/it.json', json_encode($itJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))) {
-                error_log("Failed to write IT JSON file");
-                throw new \RuntimeException("Failed to write IT JSON file");
-            }
             $this->checkLogoDirectory($logoDir, 'After generating IT JSON');
             
             // Now generate PDFs with proper logos
@@ -242,6 +233,46 @@ class FinancialSupportExportService
             // Cleanup in case of an error
             $this->cleanup();
             error_log('Error in exportAllToZip: ' . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Generate files for direct FTP upload (without ZIP)
+     */
+    public function generateFilesForFtp(): array
+    {
+        try {
+            $tempDir = sys_get_temp_dir() . '/financial-support-ftp-' . uniqid();
+            mkdir($tempDir, 0777, true);
+            
+            // Create folder structure (same as ZIP export)
+            $folders = [
+                'data',
+                'logos',
+                'pdfs'
+            ];
+            
+            foreach ($folders as $folder) {
+                mkdir($tempDir . '/' . $folder, 0777, true);
+            }
+            
+            // First generate JSON files for both ZIP export and FTP upload
+            $this->generateJsonFiles($tempDir . '/data');
+            
+            // Generate and save logos
+            $this->generateLogos($tempDir . '/logos');
+            
+            // Generate PDFs
+            $this->generatePdfs($tempDir . '/pdfs');
+            
+            return [
+                'base_path' => $tempDir,
+                'files' => $this->getFileManifest($tempDir)
+            ];
+            
+        } catch (\Throwable $e) {
+            error_log('Error in generateFilesForFtp: ' . $e->getMessage());
             throw $e;
         }
     }
@@ -757,11 +788,25 @@ class FinancialSupportExportService
                     // Validate the logo file
                     $this->validateImageFile($tempLogoPath, "PDF_LOGO_" . strtoupper($locale));
                     
-                    // If we can't get image dimensions, it's not a valid image - don't use it
-                    if (!getimagesize($tempLogoPath)) {
-                        error_log("Logo is not a valid image for PDF generation, will not use it. Locale: " . $locale);
-                        unlink($tempLogoPath);
-                        $tempLogoPath = null;
+                    // Special handling for SVG files - convert to PNG for PDF generation
+                    if ($extension === 'svg') {
+                        $convertedPath = $this->convertSvgToPng($tempLogoPath, $logoData['id'], $locale);
+                        if ($convertedPath) {
+                            unlink($tempLogoPath); // Remove the original SVG
+                            $tempLogoPath = $convertedPath;
+                            error_log("Successfully converted SVG to PNG for PDF generation: " . $tempLogoPath);
+                        } else {
+                            error_log("Failed to convert SVG to PNG for PDF generation, will not use logo. Locale: " . $locale);
+                            unlink($tempLogoPath);
+                            $tempLogoPath = null;
+                        }
+                    } else {
+                        // For non-SVG files, validate with getimagesize
+                        if (!getimagesize($tempLogoPath)) {
+                            error_log("Logo is not a valid image for PDF generation, will not use it. Locale: " . $locale);
+                            unlink($tempLogoPath);
+                            $tempLogoPath = null;
+                        }
                     }
                 }
             }
@@ -1132,17 +1177,51 @@ class FinancialSupportExportService
             }
 
             $addressParts = [];
-            if (!empty($contact['firstName']) && !empty($contact['lastName'])) {
-                $addressParts[] = htmlspecialchars($contact['firstName'] . ' ' . $contact['lastName']);
+            
+            // Handle person vs institution display
+            $contactType = $contact['type'] ?? 'person';
+            
+            // Only show person-specific fields for persons
+            if ($contactType === 'person' && (!empty($contact['firstName']) || !empty($contact['lastName']))) {
+                $nameParts = [];
+                if (!empty($contact['salutation'])) {
+                    $nameParts[] = $contact['salutation'] === 'm' ? 'Herr' : 'Frau';
+                }
+                if (!empty($contact['title'])) {
+                    $nameParts[] = $contact['title'];
+                }
+                if (!empty($contact['firstName'])) {
+                    $nameParts[] = $contact['firstName'];
+                }
+                if (!empty($contact['lastName'])) {
+                    $nameParts[] = $contact['lastName'];
+                }
+                if (!empty($nameParts)) {
+                    $addressParts[] = htmlspecialchars(implode(' ', $nameParts));
+                }
             }
+            
+            // Role and department
+            $roleAndDept = [];
             if (!empty($contact['role'])) {
-                $addressParts[] = htmlspecialchars($contact['role']);
+                $roleAndDept[] = $contact['role'];
             }
+            if (!empty($contact['department'])) {
+                $roleAndDept[] = $contact['department'];
+            }
+            if (!empty($roleAndDept)) {
+                $addressParts[] = htmlspecialchars(implode(', ', $roleAndDept));
+            }
+            
+            // Address
             if (!empty($contact['street'])) {
                 $addressParts[] = htmlspecialchars($contact['street']);
             }
             if (!empty($contact['zipCode']) || !empty($contact['city'])) {
                 $addressParts[] = htmlspecialchars(trim($contact['zipCode'] . ' ' . $contact['city']));
+            }
+            if (!empty($contact['addressSupplement'])) {
+                $addressParts[] = htmlspecialchars($contact['addressSupplement']);
             }
             
             if (!empty($addressParts)) {
@@ -1201,5 +1280,565 @@ class FinancialSupportExportService
         } catch (\Throwable $e) {
             error_log("[$context] Error validating image: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Convert SVG to PNG for PDF generation with improved gradient support
+     */
+    private function convertSvgToPng(string $svgPath, int $logoId, string $locale): ?string
+    {
+        try {
+            // Check if Imagick is available
+            if (!class_exists('Imagick')) {
+                error_log("Imagick not available for SVG conversion, skipping logo conversion");
+                return null;
+            }
+
+            $imagick = new \Imagick();
+            
+            // Set higher resolution for better gradient rendering
+            $imagick->setResolution(600, 600);
+            
+            // Set background color to transparent first to preserve gradients
+            $imagick->setBackgroundColor(new \ImagickPixel('transparent'));
+            
+            // Read the SVG file
+            $imagick->readImage($svgPath);
+            
+            // Convert to PNG with 32-bit color depth for better gradient quality
+            $imagick->setImageFormat('png32');
+            $imagick->setImageColorspace(\Imagick::COLORSPACE_SRGB);
+            $imagick->setImageDepth(8);
+            
+            // Enable better quality rendering
+            $imagick->setImageInterpolateMethod(\Imagick::INTERPOLATE_BICUBIC);
+            
+            // Create a white background image and composite the SVG on top
+            // This preserves gradients while ensuring white background
+            $background = new \Imagick();
+            $background->newImage($imagick->getImageWidth(), $imagick->getImageHeight(), new \ImagickPixel('white'));
+            $background->setImageFormat('png32');
+            
+            // Composite the SVG onto the white background
+            $background->compositeImage($imagick, \Imagick::COMPOSITE_OVER, 0, 0);
+            
+            // Create output path
+            $tempDir = sys_get_temp_dir();
+            $pngPath = tempnam($tempDir, 'logo_' . $logoId . '_converted_') . '.png';
+            
+            // Write the PNG file
+            $background->writeImage($pngPath);
+            
+            // Clean up
+            $imagick->clear();
+            $imagick->destroy();
+            $background->clear();
+            $background->destroy();
+            
+            // Verify the converted file exists and has content
+            if (file_exists($pngPath) && filesize($pngPath) > 0) {
+                error_log("Successfully converted SVG to PNG: " . $pngPath . " (" . filesize($pngPath) . " bytes)");
+                return $pngPath;
+            } else {
+                error_log("PNG conversion failed or resulted in empty file");
+                return null;
+            }
+            
+        } catch (\Exception $e) {
+            error_log("Error converting SVG to PNG: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Generate JSON files for both ZIP export and FTP upload (same structure)
+     */
+    private function generateJsonFiles(string $dataDir): void
+    {
+        $financialSupports = $this->em->getRepository(FinancialSupport::class)->findBy(['isPublic' => true]);
+        
+        foreach (['de', 'fr', 'it'] as $locale) {
+            $jsonData = $this->generateLocalizedJsonForFtp($financialSupports, $locale);
+            file_put_contents(
+                $dataDir . "/{$locale}.json", 
+                json_encode($jsonData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
+            );
+        }
+    }
+
+    /**
+     * Generate logos for each locale (directly in logos folder)
+     */
+    private function generateLogos(string $logoDir): void
+    {
+        $financialSupports = $this->em->getRepository(FinancialSupport::class)->findBy(['isPublic' => true]);
+        
+        foreach ($financialSupports as $financialSupport) {
+            foreach (['de', 'fr', 'it'] as $locale) {
+                $logoData = $this->fetchLogoData($financialSupport, $locale);
+                
+                if ($logoData && !empty($logoData['data'])) {
+                    // Get file extension
+                    $extension = pathinfo($logoData['name'], PATHINFO_EXTENSION);
+                    if (empty($extension)) {
+                        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                        $mime = $finfo->buffer($logoData['data']);
+                        $mimeToExt = [
+                            'image/jpeg' => 'jpg',
+                            'image/png' => 'png',
+                            'image/gif' => 'gif',
+                            'image/svg+xml' => 'svg',
+                            'image/webp' => 'webp'
+                        ];
+                        $extension = $mimeToExt[$mime] ?? 'png';
+                    }
+                    
+                    // Create filename with language suffix (e.g., 2.png, 2_fr.png, 2_it.png)
+                    $filename = $locale === 'de' 
+                        ? $financialSupport->getId() . '.' . $extension
+                        : $financialSupport->getId() . '_' . $locale . '.' . $extension;
+                    
+                    $filePath = $logoDir . '/' . $filename;
+                    file_put_contents($filePath, $logoData['data']);
+                    
+                    // If SVG, also create a PNG version
+                    if ($extension === 'svg') {
+                        $convertedPath = $this->convertSvgToPng($filePath, $logoData['id'], $locale);
+                        if ($convertedPath) {
+                            $pngFilename = $locale === 'de' 
+                                ? $financialSupport->getId() . '.png'
+                                : $financialSupport->getId() . '_' . $locale . '.png';
+                            $pngPath = $logoDir . '/' . $pngFilename;
+                            copy($convertedPath, $pngPath);
+                            unlink($convertedPath);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Generate PDFs for each locale (directly in pdfs folder)
+     */
+    private function generatePdfs(string $pdfDir): void
+    {
+        $financialSupports = $this->em->getRepository(FinancialSupport::class)->findBy(['isPublic' => true]);
+        
+        foreach ($financialSupports as $financialSupport) {
+            foreach (['de', 'fr', 'it'] as $locale) {
+                $logoData = $this->fetchLogoData($financialSupport, $locale);
+                
+                // Create filename with language suffix (e.g., 2.pdf, 2_fr.pdf, 2_it.pdf)
+                $filename = $locale === 'de' 
+                    ? $financialSupport->getId() . '.pdf'
+                    : $financialSupport->getId() . '_' . $locale . '.pdf';
+                
+                $pdfPath = $pdfDir . '/' . $filename;
+                $this->generatePdf($financialSupport, $pdfPath, $logoData, $locale);
+            }
+        }
+    }
+
+    /**
+     * Process logos for a specific locale
+     */
+    private function processLogosForLocale(string $localeDir, string $locale): void
+    {
+        $financialSupports = $this->em->getRepository(FinancialSupport::class)->findBy(['isPublic' => true]);
+        
+        foreach ($financialSupports as $financialSupport) {
+            $logoData = $this->fetchLogoData($financialSupport, $locale);
+            
+            if ($logoData && !empty($logoData['data'])) {
+                // Get file extension from filename
+                $extension = pathinfo($logoData['name'], PATHINFO_EXTENSION);
+                if (empty($extension)) {
+                    // Detect extension from file data if not in filename
+                    $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                    $mime = $finfo->buffer($logoData['data']);
+                    $mimeToExt = [
+                        'image/jpeg' => 'jpg',
+                        'image/png' => 'png',
+                        'image/gif' => 'gif',
+                        'image/svg+xml' => 'svg',
+                        'image/webp' => 'webp'
+                    ];
+                    $extension = $mimeToExt[$mime] ?? 'png';
+                }
+                
+                $filename = $logoData['id'] . '_' . $locale . '.' . $extension;
+                $filePath = $localeDir . '/' . $filename;
+                
+                file_put_contents($filePath, $logoData['data']);
+                
+                // If SVG, also create a PNG version
+                if ($extension === 'svg') {
+                    $convertedPath = $this->convertSvgToPng($filePath, $logoData['id'], $locale);
+                    if ($convertedPath) {
+                        $pngFilename = $logoData['id'] . '_' . $locale . '.png';
+                        $pngPath = $localeDir . '/' . $pngFilename;
+                        copy($convertedPath, $pngPath);
+                        unlink($convertedPath);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Process PDFs for a specific locale
+     */
+    private function processPdfsForLocale(string $localeDir, string $locale): void
+    {
+        $financialSupports = $this->em->getRepository(FinancialSupport::class)->findBy(['isPublic' => true]);
+        
+        foreach ($financialSupports as $financialSupport) {
+            $logoData = $this->fetchLogoData($financialSupport, $locale);
+            $pdfPath = $localeDir . '/' . $financialSupport->getId() . '_' . $locale . '.pdf';
+            
+            $this->generatePdf($financialSupport, $pdfPath, $logoData, $locale);
+        }
+    }
+
+    /**
+     * Generate localized JSON data for FTP upload
+     */
+    private function generateLocalizedJsonForFtp(array $financialSupports, string $locale): array
+    {
+        $angebote = [];
+        
+        foreach ($financialSupports as $financialSupport) {
+            // Get logo filename
+            $logoFilename = $this->getLogoFilename($financialSupport, $locale);
+            
+            // Get PDF filename
+            $pdfFilename = $locale === 'de' 
+                ? $financialSupport->getId() . '.pdf'
+                : $financialSupport->getId() . '_' . $locale . '.pdf';
+            
+            $angebot = [
+                'id' => $financialSupport->getId(),
+                'titel' => PvTrans::translate($financialSupport, 'name', $locale) ?: '',
+                'logo' => $logoFilename ? 'logos/' . $logoFilename : '',
+                'pdf' => 'pdfs/' . $pdfFilename,
+                'foerderstelle' => PvTrans::translate($financialSupport, 'fundingProvider', $locale) ?: '',
+                'unterstuetzungsform' => $this->formatArrayAsString($this->getInstrumentsData($financialSupport, $locale)),
+                'beguenstigte' => $this->formatArrayAsString($this->getBeneficiariesData($financialSupport, $locale)),
+                'lead' => PvTrans::translate($financialSupport, 'description', $locale) ?: '',
+                'kurzbeschrieb' => PvTrans::translate($financialSupport, 'additionalInformation', $locale) ?: '',
+                'teilkrit' => PvTrans::translate($financialSupport, 'inclusionCriteria', $locale) ?: '',
+                'auskrit' => PvTrans::translate($financialSupport, 'exclusionCriteria', $locale) ?: '',
+                'beantragung' => PvTrans::translate($financialSupport, 'application', $locale) ?: '',
+                'tippsbeantragung' => PvTrans::translate($financialSupport, 'applicationTips', $locale) ?: '',
+                'themenschwerpunkt' => $this->formatArrayAsString($this->getTopicsData($financialSupport, $locale)),
+                'innovationsphasen' => $this->formatArrayAsString($this->getProjectTypesData($financialSupport, $locale)),
+                'finanzierung' => PvTrans::translate($financialSupport, 'financingRatio', $locale) ?: '',
+                'foerdergebiet' => $this->formatArrayAsString($this->getGeographicRegionsData($financialSupport, $locale)),
+                'kontakt' => $this->formatContactsAsString($financialSupport, $locale),
+                'laufzeitstart' => $financialSupport->getStartDate() ? $financialSupport->getStartDate()->format('d.m.Y') : '',
+                'laufzeitende' => $financialSupport->getEndDate() ? $financialSupport->getEndDate()->format('d.m.Y') : '',
+                'termine' => $this->formatAppointmentsAsString($financialSupport, $locale),
+                'terminetxt' => '', // Empty as in original format
+                'mehrinfos' => $this->formatLinksAsString($financialSupport, $locale),
+                'zuteilung' => PvTrans::translate($financialSupport, 'assignment', $locale) ?: ''
+            ];
+            
+            $angebote[] = $angebot;
+        }
+        
+        return ['angebote' => $angebote];
+    }
+
+    /**
+     * Get logo filename for a financial support
+     */
+    private function getLogoFilename(FinancialSupport $financialSupport, string $locale): ?string
+    {
+        $logoData = $this->fetchLogoData($financialSupport, $locale);
+        
+        if (!$logoData || empty($logoData['data'])) {
+            return null;
+        }
+        
+        // Get file extension from filename
+        $extension = pathinfo($logoData['name'], PATHINFO_EXTENSION);
+        if (empty($extension)) {
+            // Detect extension from file data if not in filename
+            $finfo = new \finfo(FILEINFO_MIME_TYPE);
+            $mime = $finfo->buffer($logoData['data']);
+            $mimeToExt = [
+                'image/jpeg' => 'jpg',
+                'image/png' => 'png',
+                'image/gif' => 'gif',
+                'image/svg+xml' => 'svg',
+                'image/webp' => 'webp'
+            ];
+            $extension = $mimeToExt[$mime] ?? 'png';
+        }
+        
+        // Create filename with language suffix (e.g., 2.svg, 2_fr.svg, 2_it.svg)
+        return $locale === 'de' 
+            ? $logoData['id'] . '.' . $extension
+            : $logoData['id'] . '_' . $locale . '.' . $extension;
+    }
+
+    /**
+     * Format array of data items as string separated by <br>
+     */
+    private function formatArrayAsString(array $items): string
+    {
+        $names = array_map(function($item) {
+            return $item['name'] ?? '';
+        }, $items);
+        
+        return implode('<br>', array_filter($names));
+    }
+
+    /**
+     * Format contacts as string in the original format
+     */
+    private function formatContactsAsString(FinancialSupport $financialSupport, string $locale): string
+    {
+        $contacts = PvTrans::translate($financialSupport, 'contacts', $locale) ?: [];
+        
+        if (empty($contacts)) {
+            return '';
+        }
+        
+        $contactStrings = [];
+        
+        foreach ($contacts as $contact) {
+            $contactParts = [];
+            
+            // Institution/Organization name
+            if (!empty($contact['name'])) {
+                $contactParts[] = '<b>' . $contact['name'] . '</b>';
+            }
+            
+            // Person details for person contacts
+            if ($contact['type'] === 'person' || !isset($contact['type'])) {
+                $personName = '';
+                if (!empty($contact['salutation'])) {
+                    $personName .= ($contact['salutation'] === 'm' ? 'Herr ' : 'Frau ');
+                }
+                if (!empty($contact['firstName']) || !empty($contact['lastName'])) {
+                    $personName .= trim(($contact['firstName'] ?? '') . ' ' . ($contact['lastName'] ?? ''));
+                }
+                if ($personName) {
+                    $contactParts[] = $personName;
+                }
+                
+                if (!empty($contact['role'])) {
+                    $contactParts[] = $contact['role'];
+                }
+            }
+            
+            // Address
+            if (!empty($contact['street'])) {
+                $contactParts[] = $contact['street'];
+            }
+            
+            $addressLine = '';
+            if (!empty($contact['zipCode'])) {
+                $addressLine .= $contact['zipCode'];
+            }
+            if (!empty($contact['city'])) {
+                $addressLine .= ($addressLine ? '  ' : '') . $contact['city'];
+            }
+            if ($addressLine) {
+                $contactParts[] = $addressLine;
+            }
+            
+            if (!empty($contact['addressSupplement'])) {
+                $contactParts[] = $contact['addressSupplement'];
+            }
+            
+            // Contact details
+            if (!empty($contact['email'])) {
+                $contactParts[] = $contact['email'];
+            }
+            if (!empty($contact['phone'])) {
+                $contactParts[] = $contact['phone'];
+            }
+            
+            if (!empty($contactParts)) {
+                $contactStrings[] = implode('<br>', $contactParts);
+            }
+        }
+        
+        return implode('<br><br>', $contactStrings);
+    }
+
+    /**
+     * Format appointments as string
+     */
+    private function formatAppointmentsAsString(FinancialSupport $financialSupport, string $locale): string
+    {
+        $appointments = PvTrans::translate($financialSupport, 'appointments', $locale) ?: [];
+        
+        if (empty($appointments)) {
+            return '';
+        }
+        
+        $appointmentStrings = [];
+        
+        foreach ($appointments as $appointment) {
+            $parts = [];
+            
+            if (!empty($appointment['date'])) {
+                $date = new \DateTime($appointment['date']);
+                $parts[] = $date->format('d.m.Y');
+            }
+            
+            if (!empty($appointment['description'])) {
+                $parts[] = strip_tags($appointment['description']);
+            }
+            
+            if (!empty($parts)) {
+                $appointmentStrings[] = implode(': ', $parts);
+            }
+        }
+        
+        return implode('<br>', $appointmentStrings);
+    }
+
+    /**
+     * Format links as string in the original format
+     */
+    private function formatLinksAsString(FinancialSupport $financialSupport, string $locale): string
+    {
+        $links = PvTrans::translate($financialSupport, 'links', $locale) ?: [];
+        
+        if (empty($links)) {
+            return '';
+        }
+        
+        $linkStrings = [];
+        
+        foreach ($links as $link) {
+            if (!empty($link['value']) && !empty($link['label'])) {
+                $linkStrings[] = '<a href="' . htmlspecialchars($link['value']) . '" target="_blank" class="contLinks" title="' . htmlspecialchars($link['label']) . '">' . htmlspecialchars($link['label']) . '</a>';
+            }
+        }
+        
+        return implode('<br>', $linkStrings);
+    }
+
+    /**
+     * Get file manifest for FTP upload
+     */
+    private function getFileManifest(string $basePath): array
+    {
+        $files = [];
+        
+        // Data files
+        foreach (['de', 'fr', 'it'] as $locale) {
+            $files[] = [
+                'local' => "data/{$locale}.json",
+                'remote' => "data/{$locale}.json",
+                'type' => 'json'
+            ];
+        }
+        
+        // Logo files (directly in logos folder)
+        $logoFiles = $this->scanDirectory($basePath . "/logos");
+        foreach ($logoFiles as $logoFile) {
+            $files[] = [
+                'local' => "logos/{$logoFile}",
+                'remote' => "logos/{$logoFile}",
+                'type' => 'logo'
+            ];
+        }
+        
+        // PDF files (directly in pdfs folder)
+        $pdfFiles = $this->scanDirectory($basePath . "/pdfs");
+        foreach ($pdfFiles as $pdfFile) {
+            $files[] = [
+                'local' => "pdfs/{$pdfFile}",
+                'remote' => "pdfs/{$pdfFile}",
+                'type' => 'pdf'
+            ];
+        }
+        
+        return $files;
+    }
+
+    /**
+     * Scan directory for files
+     */
+    private function scanDirectory(string $dir): array
+    {
+        if (!is_dir($dir)) {
+            return [];
+        }
+        
+        $files = array_diff(scandir($dir), ['.', '..']);
+        return array_values(array_filter($files, function($file) use ($dir) {
+            return is_file($dir . '/' . $file);
+        }));
+    }
+
+    /**
+     * Helper methods for getting related data
+     */
+    private function getStatesData(FinancialSupport $financialSupport, string $locale): array
+    {
+        return array_map(function($state) use ($locale) {
+            return [
+                'id' => $state->getId(),
+                'name' => PvTrans::translate($state, 'name', $locale)
+            ];
+        }, $financialSupport->getStates()->toArray());
+    }
+
+    private function getTopicsData(FinancialSupport $financialSupport, string $locale): array
+    {
+        return array_map(function($topic) use ($locale) {
+            return [
+                'id' => $topic->getId(),
+                'name' => PvTrans::translate($topic, 'name', $locale)
+            ];
+        }, $financialSupport->getTopics()->toArray());
+    }
+
+    private function getInstrumentsData(FinancialSupport $financialSupport, string $locale): array
+    {
+        return array_map(function($instrument) use ($locale) {
+            return [
+                'id' => $instrument->getId(),
+                'name' => PvTrans::translate($instrument, 'name', $locale)
+            ];
+        }, $financialSupport->getInstruments()->toArray());
+    }
+
+    private function getBeneficiariesData(FinancialSupport $financialSupport, string $locale): array
+    {
+        return array_map(function($beneficiary) use ($locale) {
+            return [
+                'id' => $beneficiary->getId(),
+                'name' => PvTrans::translate($beneficiary, 'name', $locale)
+            ];
+        }, $financialSupport->getBeneficiaries()->toArray());
+    }
+
+    private function getProjectTypesData(FinancialSupport $financialSupport, string $locale): array
+    {
+        return array_map(function($projectType) use ($locale) {
+            return [
+                'id' => $projectType->getId(),
+                'name' => PvTrans::translate($projectType, 'name', $locale)
+            ];
+        }, $financialSupport->getProjectTypes()->toArray());
+    }
+
+    private function getGeographicRegionsData(FinancialSupport $financialSupport, string $locale): array
+    {
+        return array_map(function($region) use ($locale) {
+            return [
+                'id' => $region->getId(),
+                'name' => PvTrans::translate($region, 'name', $locale)
+            ];
+        }, $financialSupport->getGeographicRegions()->toArray());
     }
 } 

@@ -21,6 +21,24 @@
 
             </div>
 
+            <!-- Publication Status Display -->
+            <div class="publication-status-section" v-if="financialSupport.id">
+                <div class="publication-status-container">
+                    <div class="publication-status-item">
+                        <span class="publication-status-label">Live:</span>
+                        <span class="publication-status-value" :class="publicationStatus.live ? 'published' : 'not-published'">
+                            {{ publicationStatus.live ? publicationStatus.live : 'Nicht publiziert' }}
+                        </span>
+                    </div>
+                    <div class="publication-status-item">
+                        <span class="publication-status-label">Test:</span>
+                        <span class="publication-status-value" :class="publicationStatus.staging ? 'published' : 'not-published'">
+                            {{ publicationStatus.staging ? publicationStatus.staging : 'Nicht publiziert' }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
             <div class="financial-support-component-form-section">
 
                 <div class="row">
@@ -216,12 +234,21 @@
                         <label v-else>Kontakte (Übersetzung {{ locale.toUpperCase() }})</label>
                         <div class="financial-support-component-form-section-contact" v-for="(contact, index) in (locale === 'de' ? financialSupport.contacts : financialSupport.translations[locale].contacts)">
                             <div class="row">
-                                <div class="col-md-12">
+                                <div class="col-md-8">
                                     <label>Name</label>
                                     <input type="text" class="form-control" v-model="contact.name">
                                 </div>
+                                <div class="col-md-4">
+                                    <label>Typ</label>
+                                    <div class="select-wrapper">
+                                        <select class="form-control" v-model="contact.type" @change="cleanContactFields(contact)">
+                                            <option value="person">Person</option>
+                                            <option value="institution">Institution</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="row">
+                            <div class="row" v-if="contact.type !== 'institution'">
                                 <div class="col-md-2">
                                     <label>Anrede</label>
                                     <div class="select-wrapper">
@@ -246,9 +273,13 @@
                                 </div>
                             </div>
                             <div class="row">
-                                <div class="col-md-12">
+                                <div  v-if="contact.type !== 'institution'" class="col-md-6">
                                     <label>Funktion</label>
                                     <input type="text" class="form-control" v-model="contact.role">
+                                </div>
+                                <div class="col-md-6">
+                                    <label>Abteilung / Sektion der Institution</label>
+                                    <input type="text" class="form-control" v-model="contact.department">
                                 </div>
                             </div>
                             <div class="row">
@@ -281,6 +312,12 @@
                             </div>
                             <div class="row">
                                 <div class="col-md-12">
+                                    <label>Adresszusatz</label>
+                                    <input type="text" class="form-control" v-model="contact.addressSupplement">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-12">
                                     <div class="button warning" @click="clickRemoveContact(index)">Kontakt entfernen</div>
                                 </div>
                             </div>
@@ -295,17 +332,30 @@
                     <div class="col-md-8">
                         <label v-if="locale === 'de'">{{ $t('Mehr Informationen') }}</label>
                         <label v-else>{{ $t('Mehr Informationen') }} (Übersetzung {{ locale.toUpperCase() }})</label>
-                        <div class="row" v-for="(link, index) in (locale === 'de' ? financialSupport.links : financialSupport.translations[locale].links)">
-                            <div class="col-md-4">
-                                <input type="text" class="form-control" v-model="link.label" placeholder="Bezeichnung">
-                            </div>
-                            <div class="col-md-4">
-                                <input type="text" class="form-control" v-model="link.value" placeholder="URL">
-                            </div>
-                            <div class="col-md-3">
-                                <button class="button error" @click="clickRemoveLink(index)">Eintrag entfernen</button>
-                            </div>
-                        </div>
+                        <draggable 
+                            v-model="currentLinks" 
+                            item-key="index" 
+                            handle=".drag-handle"
+                            class="draggable-links">
+                            <template #item="{ element: link, index }">
+                                <div class="row draggable-item">
+                                    <div class="col-md-1">
+                                        <div class="drag-handle">
+                                            <span class="material-icons">drag_indicator</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="text" class="form-control" v-model="link.label" placeholder="Bezeichnung">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="text" class="form-control" v-model="link.value" placeholder="URL">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <button class="button error" @click="clickRemoveLink(index)">Eintrag entfernen</button>
+                                    </div>
+                                </div>
+                            </template>
+                        </draggable>
                     </div>
                 </div>
 
@@ -412,6 +462,7 @@ import FileSelector from './FileSelector';
 import { DatePicker } from 'v-calendar';
 import Modal from './Modal';
 import {translateField} from '../utils/filters';
+import draggable from 'vuedraggable';
 
 export default {
     data() {
@@ -495,6 +546,10 @@ export default {
                 },
             },
             modal: null,
+            publicationStatus: {
+                live: null,
+                staging: null
+            },
             editor: ClassicEditor,
             editorConfig: {
                 basicEntities: false,
@@ -524,6 +579,7 @@ export default {
         FileSelector,
         DatePicker,
         Modal,
+        draggable,
     },
     computed: {
         ...mapState({
@@ -564,6 +620,24 @@ export default {
                 }
             }
         },
+        currentLinks: {
+            get() {
+                if (this.locale === 'de') {
+                    return this.financialSupport.links || [];
+                }
+                return (this.financialSupport.translations[this.locale] || {}).links || [];
+            },
+            set(value) {
+                if (this.locale === 'de') {
+                    this.financialSupport.links = value;
+                } else {
+                    if (!this.financialSupport.translations[this.locale]) {
+                        this.financialSupport.translations[this.locale] = {};
+                    }
+                    this.financialSupport.translations[this.locale].links = value;
+                }
+            }
+        },
     },
     methods: {
         clickDelete () {
@@ -593,6 +667,35 @@ export default {
         clickCancel () {
             this.$router.push('/financial-supports');
         },
+        async loadPublicationStatus() {
+            if (!this.financialSupport.id) return;
+            
+            try {
+                const response = await fetch('/api/v1/financial-supports/publication-status');
+                const result = await response.json();
+                
+                // Reset status
+                this.publicationStatus.live = null;
+                this.publicationStatus.staging = null;
+                
+                if (Array.isArray(result)) {
+                    // Find this financial support in the data
+                    const fsData = result.find(fs => fs.id === this.financialSupport.id);
+                    
+                    if (fsData) {
+                        this.publicationStatus.live = fsData.production 
+                            ? new Date(fsData.production.publishedAt).toLocaleString('de-DE')
+                            : null;
+                        this.publicationStatus.staging = fsData.staging 
+                            ? new Date(fsData.staging.publishedAt).toLocaleString('de-DE')
+                            : null;
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error loading publication status:', error);
+            }
+        },
         clickSave() {
             if(!this.financialSupport.startDate) {
                 this.financialSupport.startDate = null;
@@ -601,6 +704,28 @@ export default {
             if(!this.financialSupport.endDate) {
                 this.financialSupport.endDate = null;
             }
+
+            // Clean person-specific fields for institution contacts before saving
+            ['de', 'fr', 'it'].forEach(locale => {
+                const contacts = locale === 'de' ? this.financialSupport.contacts : (this.financialSupport.translations[locale] ? this.financialSupport.translations[locale].contacts : []);
+                if (contacts) {
+                    contacts.forEach(contact => {
+                        // Set default type if not set
+                        if (!contact.type) {
+                            contact.type = 'person';
+                        }
+                        // Clean person fields for institutions
+                        if (contact.type === 'institution') {
+                            contact.salutation = '';
+                            contact.title = '';
+                            contact.firstName = '';
+                            contact.lastName = '';
+                            contact.role = '';
+                            contact.department = '';
+                        }
+                    });
+                }
+            });
 
             // Initialize otherOptionValues if it doesn't exist
             if (!this.financialSupport.otherOptionValues) {
@@ -671,6 +796,19 @@ export default {
                             };
                         }
                     });
+                    
+                    // Ensure contacts have new fields initialized
+                    ['de', 'fr', 'it'].forEach(locale => {
+                        const contacts = locale === 'de' ? this.financialSupport.contacts : (this.financialSupport.translations[locale] ? this.financialSupport.translations[locale].contacts : []);
+                        if (contacts) {
+                            contacts.forEach(contact => {
+                                // Initialize new fields if they don't exist
+                                if (contact.type === undefined) contact.type = 'person';
+                                if (contact.department === undefined) contact.department = '';
+                                if (contact.addressSupplement === undefined) contact.addressSupplement = '';
+                            });
+                        }
+                    });
                 });
             }
         },
@@ -684,10 +822,37 @@ export default {
             let link = (this.locale === 'de' ? this.financialSupport.links : this.financialSupport.translations[this.locale].links).splice(index, 1)[0];
         },
         clickAddContact() {
-            (this.locale === 'de' ? this.financialSupport.contacts : this.financialSupport.translations[this.locale].contacts).push({});
+            (this.locale === 'de' ? this.financialSupport.contacts : this.financialSupport.translations[this.locale].contacts).push({
+                type: 'person',
+                name: '',
+                salutation: '',
+                title: '',
+                firstName: '',
+                lastName: '',
+                role: '',
+                department: '',
+                phone: '',
+                email: '',
+                website: '',
+                street: '',
+                zipCode: '',
+                city: '',
+                addressSupplement: ''
+            });
         },
         clickRemoveContact(index) {
             let contact = (this.locale === 'de' ? this.financialSupport.contacts : this.financialSupport.translations[this.locale].contacts).splice(index, 1)[0];
+        },
+        cleanContactFields(contact) {
+            // Clean person-specific fields when switching to institution
+            if (contact.type === 'institution') {
+                contact.salutation = '';
+                contact.title = '';
+                contact.firstName = '';
+                contact.lastName = '';
+                contact.role = '';
+                contact.department = '';
+            }
         },
         clickAddAppointment() {
             if (this.locale === 'de') {
@@ -719,6 +884,93 @@ export default {
     },
     created () {
         this.reload();
+    },
+    watch: {
+        'financialSupport.isPublic': function(newVal, oldVal) {
+            if (newVal !== oldVal) {
+                this.loadPublicationStatus();
+            }
+        },
+        'financialSupport.id': function(newVal, oldVal) {
+            if (newVal !== oldVal && newVal) {
+                this.loadPublicationStatus();
+            }
+        }
     }
 }
 </script>
+
+<style scoped>
+.draggable-links {
+    margin-bottom: 10px;
+}
+
+.draggable-item {
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 4px;
+}
+
+
+.drag-handle {
+    cursor: move;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 34px;
+    color: #666;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #fff;
+    transition: all 0.2s;
+}
+
+.drag-handle:hover {
+    background-color: #f0f0f0;
+    color: #333;
+}
+
+.drag-handle .material-icons {
+    font-size: 18px;
+}
+
+.publication-status-section {
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.publication-status-container {
+    display: flex;
+    gap: 30px;
+    align-items: center;
+}
+
+.publication-status-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.publication-status-label {
+    font-weight: 600;
+    color: #495057;
+    font-size: 14px;
+}
+
+.publication-status-value {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.publication-status-value.published {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.publication-status-value.not-published {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+</style>

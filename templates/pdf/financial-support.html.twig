@@ -116,56 +116,69 @@
                 {% set contacts = pv_trans(financialSupport, 'contacts', app.request.locale)|default([]) %}
                 {% if contacts is not empty %}
                     <h2>{{ translations['Kontakt'] is defined ? translations['Kontakt'] : ('Kontakt' |trans) }}</h2>
+                    
+                    {# Single column layout with subtle separator lines #}
                     {% for contact in contacts %}
-                        {% if loop.index % 2 == 0 %}
-                            <div style="float: right; width: 45%;">
-                        {% else %}
-                            <div>
-                            <div style="float: left; width: 45%;">
-                        {% endif %}
-
-                        {% if contact.name|default %}
-                            <h3>{{ contact.name }}</h3>
-                        {% endif %}
-                        
-                        {% if contact.firstName|default or contact.lastName|default or contact.role|default or contact.street|default or (contact.zipCode|default and contact.city|default) %}
-                            <p>
-                                {% if contact.firstName|default and contact.lastName|default %}
-                                    {{ contact.firstName }} {{ contact.lastName }}<br>
+                        <div style="padding: 12px 0; {% if not loop.last %}border-bottom: 1px solid #e0e0e0; margin-bottom: 12px;{% endif %}">
+                            {% if contact.name|default %}
+                                <p style="margin: 0 0 8px 0; font-size: 14px;"><strong>{{ contact.name }}</strong></p>
+                            {% endif %}
+                            
+                            {% set personInfo = [] %}
+                            {% if contact.type|default == 'person' %}
+                                {% if contact.salutation|default %}
+                                    {% set personInfo = personInfo|merge([contact.salutation == 'm' ? 'Herr' : 'Frau']) %}
                                 {% endif %}
-                                {% if contact.role|default %}
-                                    {{ contact.role }}<br>
+                                {% if contact.title|default %}
+                                    {% set personInfo = personInfo|merge([contact.title]) %}
                                 {% endif %}
-                                {% if contact.street|default %}
-                                    {{ contact.street }}<br/>
+                                {% if contact.firstName|default %}
+                                    {% set personInfo = personInfo|merge([contact.firstName]) %}
                                 {% endif %}
-                                {% if contact.zipCode|default and contact.city|default %}
-                                    {{ contact.zipCode }} {{ contact.city }}
+                                {% if contact.lastName|default %}
+                                    {% set personInfo = personInfo|merge([contact.lastName]) %}
                                 {% endif %}
-                            </p>
-                        {% endif %}
-
-                        {% if contact.email|default or contact.phone|default or contact.web|default %}
-                            <p>
-                                {% if contact.email|default %}
-                                    {{ contact.email }}<br/>
+                                {% if personInfo is not empty %}
+                                    <p style="margin: 0 0 5px 0;"><strong>{{ personInfo|join(' ') }}</strong></p>
                                 {% endif %}
-                                {% if contact.phone|default %}
-                                    {{ contact.phone }}<br/>
-                                {% endif %}
-                                {% if contact.web|default %}
-                                    {{ contact.web }}
-                                {% endif %}
-                            </p>
-                        {% endif %}
-
+                            {% endif %}
+                            
+                            {% if contact.role|default %}
+                                <p style="margin: 0 0 5px 0; font-style: italic;">{{ contact.role }}</p>
+                            {% endif %}
+                            
+                            {% if contact.department|default %}
+                                <p style="margin: 0 0 5px 0;">{{ contact.department }}</p>
+                            {% endif %}
+                            
+                            {% if contact.street|default %}
+                                <p style="margin: 0 0 3px 0;">{{ contact.street }}</p>
+                            {% endif %}
+                            
+                            {% if contact.zipCode|default or contact.city|default %}
+                                <p style="margin: 0 0 5px 0;">{{ contact.zipCode|default }} {{ contact.city|default }}</p>
+                            {% endif %}
+                            
+                            {% if contact.addressSupplement|default %}
+                                <p style="margin: 0 0 5px 0; font-size: 12px; color: #666;">{{ contact.addressSupplement }}</p>
+                            {% endif %}
+                            
+                            {% if contact.email|default or contact.phone|default or contact.website|default %}
+                                <p style="margin: 5px 0 0 0;">
+                                    {% if contact.email|default %}
+                                        <a href="mailto:{{ contact.email }}" style="color: #D8232A; text-decoration: none;">{{ contact.email }}</a>
+                                        {% if contact.phone|default or contact.website|default %}<br>{% endif %}
+                                    {% endif %}
+                                    {% if contact.phone|default %}
+                                        {{ contact.phone }}
+                                        {% if contact.website|default %}<br>{% endif %}
+                                    {% endif %}
+                                    {% if contact.website|default %}
+                                        <a href="{{ contact.website }}" target="_blank" style="color: #D8232A; text-decoration: none;">{{ contact.website }}</a>
+                                    {% endif %}
+                                </p>
+                            {% endif %}
                         </div>
-
-                        {% if loop.last %}
-                            </div>
-                        {% elseif loop.index % 2 == 0 %}
-                            </div>
-                        {% endif %}
                     {% endfor %}
                 {% endif %}
 

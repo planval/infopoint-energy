@@ -16,6 +16,7 @@ import Users from '../components/Users';
 import User from '../components/User';
 import FinancialSupports from '../components/FinancialSupports';
 import FinancialSupport from '../components/FinancialSupport';
+import FinancialSupportContacts from '../components/FinancialSupportContacts';
 import Educations from '../components/Educations';
 import Education from '../components/Education';
 import Jobs from '../components/Jobs';
@@ -161,6 +162,11 @@ const routes = [
                 path: 'financial-supports/:id/edit',
                 name: 'financial-supports_edit',
                 component: FinancialSupport,
+            },
+            {
+                path: 'financial-supports/contacts',
+                name: 'financial-supports_contacts',
+                component: FinancialSupportContacts,
             },
             {
                 path: 'contacts/company',

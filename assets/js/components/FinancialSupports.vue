@@ -213,6 +213,7 @@
                         <th>Förderstelle</th>
                         <th>Laufzeit</th>
                         <th>PDF</th>
+                        <th>Status</th>
                     </tr>
                 </thead>
                 <tbody v-if="isLoading('financialSupports')">
@@ -241,6 +242,24 @@
                                     PDF
                                 </a>
                             </td>
+                            <td @click.stop>
+                                <div class="publication-status-dots">
+                                    <div class="status-dot-container">
+                                        <div class="status-dot" 
+                                             :class="getPublicationStatusClass(element.id, 'staging')"
+                                             :title="getPublicationStatusTooltip(element.id, 'staging')">
+                                        </div>
+                                        <span class="status-label">Test</span>
+                                    </div>
+                                    <div class="status-dot-container">
+                                        <div class="status-dot" 
+                                             :class="getPublicationStatusClass(element.id, 'production')"
+                                             :title="getPublicationStatusTooltip(element.id, 'production')">
+                                        </div>
+                                        <span class="status-label">Live</span>
+                                    </div>
+                                </div>
+                            </td>
                         </tr>
                     </template>
                 </draggable>
@@ -263,49 +282,97 @@
 
         </transition>
 
-        <!-- Add modal for publish environment selection -->
-        <div class="modal" v-if="showPublishModal">
-            <div class="modal-background" @click="showPublishModal = false"></div>
-            <div class="modal-content">
-                <div class="modal-header">
+        <!-- Modern modal for publish environment selection -->
+        <div class="modal-modern" v-if="showPublishModal">
+            <div class="modal-backdrop" @click="showPublishModal = false"></div>
+            <div class="modal-content-modern">
+                <div class="modal-header-modern">
                     <h3>Förderhilfen publizieren</h3>
-                    <button class="close-button" @click="showPublishModal = false">&times;</button>
+                    <button class="close-button-modern" @click="showPublishModal = false">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
                 </div>
-                <div class="modal-body">
+                
+                <div class="modal-body-modern">
                     <!-- Show environment selection if not confirming -->
-                    <div v-if="!confirmingPublish">
-                        <p>Wählen Sie die Umgebung für die Publikation:</p>
-                        <div class="publish-options">
-                            <button @click="confirmPublish('production')" class="button primary" :disabled="isPublishing">
-                                Live-Umgebung
-                            </button>
-                            <button @click="confirmPublish('staging')" class="button primary" :disabled="isPublishing">
-                                Test-Umgebung
-                            </button>
+                    <div v-if="!confirmingPublish && !isPublishing">
+                        <p class="modal-description">Wählen Sie die Umgebung für die Publikation:</p>
+                        <div class="environment-cards">
+                            <div class="environment-card" @click="confirmPublish('production')" :class="{'disabled': isPublishing}">
+                                <h4>Live-Umgebung</h4>
+                                <p>Publikation für Endnutzer</p>
+                            </div>
+                            <div class="environment-card" @click="confirmPublish('staging')" :class="{'disabled': isPublishing}">
+                                <h4>Test-Umgebung</h4>
+                                <p>Publikation für Tests</p>
+                            </div>
                         </div>
                     </div>
                     
                     <!-- Show confirmation if user selected an environment -->
-                    <div v-if="confirmingPublish">
-                        <p class="confirmation-message">
-                            Wollen Sie wirklich zur <strong>{{ confirmingEnvironment === 'production' ? 'Live-Umgebung' : 'Test-Umgebung' }}</strong> publizieren?
-                        </p>
-                        <div class="confirmation-buttons">
-                            <button @click="cancelConfirmation()" class="button warning" :disabled="isPublishing">
-                                Abbrechen
-                            </button>
-                            <button @click="publishToEnvironment(confirmingEnvironment)" class="button success" :disabled="isPublishing">
-                                Bestätigen
-                            </button>
+                    <div v-if="confirmingPublish && !isPublishing">
+                        <div class="confirmation-content">
+                            <h4>Publikation bestätigen</h4>
+                            <p class="confirmation-message">
+                                Wollen Sie wirklich zur <strong>{{ confirmingEnvironment === 'production' ? 'Live-Umgebung' : 'Test-Umgebung' }}</strong> publizieren?
+                            </p>
+                            <div class="confirmation-buttons-modern">
+                                <button @click="cancelConfirmation()" class="button secondary" :disabled="isPublishing">
+                                    Abbrechen
+                                </button>
+                                <button @click="publishToEnvironment(confirmingEnvironment)" class="button primary" :disabled="isPublishing">
+                                    Bestätigen
+                                </button>
+                            </div>
                         </div>
                     </div>
                     
-                    <div v-if="isPublishing" class="publishing-status">
-                        <div class="loading-indicator"></div>
-                        <p>Publikation läuft...</p>
+                    <!-- Modern loading state -->
+                    <div v-if="isPublishing" class="publishing-status-modern">
+                        <div class="loading-container">
+                            <div class="modern-spinner"></div>
+                            <div class="loading-content">
+                                <h4>Publikation wird durchgeführt</h4>
+                                <p>Bitte warten Sie, während die Daten übertragen werden...</p>
+                                <div class="loading-steps">
+                                    <div class="step active">
+                                        <div class="step-indicator"></div>
+                                        <span>Dateien vorbereiten</span>
+                                    </div>
+                                    <div class="step">
+                                        <div class="step-indicator"></div>
+                                        <span>Upload durchführen</span>
+                                    </div>
+                                    <div class="step">
+                                        <div class="step-indicator"></div>
+                                        <span>Publikation abschließen</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div v-if="publishStatus" class="publish-status" :class="{'success': publishStatus.success, 'error': !publishStatus.success}">
-                        <p>{{ publishStatus.message }}</p>
+                    
+                    <!-- Modern status feedback -->
+                    <div v-if="publishStatus" class="publish-status-modern" :class="{'success': publishStatus.success, 'error': !publishStatus.success}">
+                        <div class="status-icon">
+                            <svg v-if="publishStatus.success" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22,4 12,14.01 9,11.01"></polyline>
+                            </svg>
+                            <svg v-else width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="15" y1="9" x2="9" y2="15"></line>
+                                <line x1="9" y1="9" x2="15" y2="15"></line>
+                            </svg>
+                        </div>
+                        <div class="status-content">
+                            <h4 v-if="publishStatus.success">Publikation erfolgreich</h4>
+                            <h4 v-else>Publikation fehlgeschlagen</h4>
+                            <p>{{ publishStatus.message }}</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -336,6 +403,7 @@
                 publishStatus: null,
                 confirmingPublish: false,
                 confirmingEnvironment: null,
+                publicationStatusMap: {}, // Map to store publication status for each financial support
             };
         },
         components: {
@@ -590,7 +658,11 @@
             reloadFinancialSupports () {
                 this.isLoadedFully = false;
                 this.offset = 0;
-                return this.$store.dispatch('financialSupports/loadFiltered', this.getFilterParams()).then(() => {
+                // Load both financial supports and publication status in parallel
+                return Promise.all([
+                    this.$store.dispatch('financialSupports/loadFiltered', this.getFilterParams()),
+                    this.loadPublicationStatus()
+                ]).then(() => {
                     this.localFinancialSupports = [...this.financialSupports];
                 });
             },
@@ -786,6 +858,8 @@
                         // Reset confirmation state after successful publish
                         this.confirmingPublish = false;
                         this.confirmingEnvironment = null;
+                        // Reload publication status after successful publish
+                        this.loadPublicationStatus();
                     } else {
                         this.publishStatus = {
                             success: false,
@@ -802,9 +876,64 @@
                     this.isPublishing = false;
                 }
             },
+            async loadPublicationStatus() {
+                try {
+                    const response = await fetch('/api/v1/financial-supports/publication-status');
+                    const result = await response.json();
+                    
+                    // Initialize status map
+                    this.publicationStatusMap = {};
+                    
+                    // The data is now directly in result (no debug wrapper)
+                    if (Array.isArray(result)) {
+                        // Process the publication status for each financial support
+                        result.forEach(fs => {
+                            this.publicationStatusMap[fs.id] = {
+                                production: fs.production ? {
+                                    publishedAt: new Date(fs.production.publishedAt),
+                                    publishedBy: fs.production.publishedBy
+                                } : null,
+                                staging: fs.staging ? {
+                                    publishedAt: new Date(fs.staging.publishedAt),
+                                    publishedBy: fs.staging.publishedBy
+                                } : null
+                            };
+                        });
+                    }
+                    
+                } catch (error) {
+                    console.error('Error loading publication status:', error);
+                }
+            },
+            getPublicationStatusClass(financialSupportId, environment) {
+                const status = this.publicationStatusMap[financialSupportId];
+                if (!status) return 'not-published';
+                
+                const envStatus = status[environment];
+                const isPublished = envStatus !== null && envStatus.publishedAt !== null;
+                return isPublished ? 'published' : 'not-published';
+            },
+            getPublicationStatusTooltip(financialSupportId, environment) {
+                const status = this.publicationStatusMap[financialSupportId];
+                const envLabel = environment === 'production' ? 'Live' : 'Test';
+                
+                if (!status) {
+                    return `${envLabel}: Status wird geladen...`;
+                }
+                
+                const envStatus = status[environment];
+                
+                if (envStatus && envStatus.publishedAt) {
+                    return `${envLabel}: Publiziert am ${envStatus.publishedAt.toLocaleString('de-DE')} von ${envStatus.publishedBy}`;
+                } else {
+                    return `${envLabel}: Nicht publiziert`;
+                }
+            },
         },
         created () {
             this.loadFilter();
+            // Start loading publication status immediately
+            this.loadPublicationStatus();
             Promise.all([
                 this.$store.dispatch('authorities/loadAll'),
                 this.$store.dispatch('states/loadAll'),
@@ -818,8 +947,8 @@
 </script>
 
 <style>
-/* Add this to the existing styles or in your CSS file */
-.modal {
+/* Modern Modal Styling */
+.modal-modern {
     position: fixed;
     top: 0;
     left: 0;
@@ -829,84 +958,445 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    animation: modalFadeIn 0.3s ease-out;
 }
 
-.modal-background {
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.modal-backdrop {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
 }
 
-.modal-content {
+.modal-content-modern {
     background-color: #fff;
-    border-radius: 4px;
-    padding: 20px;
-    width: 500px;
+    border-radius: 12px;
+    padding: 0;
+    width: 600px;
     max-width: 90%;
     position: relative;
     z-index: 1001;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    transform: scale(0.95);
+    animation: modalSlideIn 0.3s ease-out forwards;
 }
 
-.modal-header {
+@keyframes modalSlideIn {
+    from {
+        transform: scale(0.95) translateY(-10px);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-header-modern {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 10px;
-    margin-bottom: 15px;
+    padding: 24px 28px;
+    border-bottom: 1px solid #e9ecef;
+    background-color: #f8f9fa;
+    border-radius: 12px 12px 0 0;
 }
 
-.close-button {
+.modal-header-modern h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.close-button-modern {
     background: none;
     border: none;
-    font-size: 24px;
     cursor: pointer;
-}
-
-.publish-options {
-    display: flex;
-    justify-content: space-around;
-    margin: 20px 0;
-}
-
-.publishing-status {
+    padding: 8px;
+    border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 15px 0;
+    color: #6c757d;
+    transition: all 0.2s ease;
 }
 
-.publish-status {
-    padding: 10px;
-    border-radius: 4px;
-    margin-top: 15px;
+.close-button-modern:hover {
+    background-color: #e9ecef;
+    color: #495057;
 }
 
-.publish-status.success {
-    background-color: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
+.modal-body-modern {
+    padding: 28px;
 }
 
-.publish-status.error {
-    background-color: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
+.modal-description {
+    font-size: 1rem;
+    color: #6c757d;
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+/* Environment Cards */
+.environment-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.environment-card {
+    padding: 24px;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: #fff;
+}
+
+.environment-card:hover:not(.disabled) {
+    border-color: #E53940;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(52, 152, 219, 0.15);
+}
+
+.environment-card.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.environment-icon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+}
+
+.environment-icon.production {
+    background-color: #e8f5e8;
+    color: #2e7d32;
+}
+
+.environment-icon.staging {
+    background-color: #e3f2fd;
+    color: #E53940;
+}
+
+.environment-card h4 {
+    margin: 0 0 8px 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.environment-card p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+/* Confirmation Content */
+.confirmation-content {
+    text-align: center;
+    padding: 20px 0;
+}
+
+.confirmation-icon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    background-color: #e8f5e8;
+    color: #2e7d32;
+}
+
+.confirmation-content h4 {
+    margin: 0 0 16px 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #2d3748;
 }
 
 .confirmation-message {
-    text-align: center;
-    font-size: 1.1em;
-    margin: 15px 0;
+    font-size: 1rem;
+    color: #6c757d;
+    margin-bottom: 24px;
+    line-height: 1.5;
 }
 
-.confirmation-buttons {
+.confirmation-buttons-modern {
     display: flex;
-    justify-content: space-around;
-    margin: 20px 0;
+    justify-content: center;
+    gap: 12px;
+}
+
+/* Modern Buttons */
+.button-modern {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 100px;
+}
+
+.button-modern.primary {
+    background-color: #E53940;
+    color: white;
+}
+
+.button-modern.primary:hover:not(:disabled) {
+    background-color: #E53940;
+    transform: translateY(-1px);
+}
+
+.button-modern.secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.button-modern.secondary:hover:not(:disabled) {
+    background-color: #5a6268;
+    transform: translateY(-1px);
+}
+
+.button-modern:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Modern Loading State */
+.publishing-status-modern {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+}
+
+.modern-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #e9ecef;
+    border-top: 4px solid #E53940;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-content h4 {
+    margin: 0 0 8px 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.loading-content p {
+    margin: 0 0 24px 0;
+    color: #6c757d;
+}
+
+.loading-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    text-align: left;
+}
+
+.step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    color: #6c757d;
+    transition: color 0.3s ease;
+}
+
+.step.active {
+    color: #E53940;
+}
+
+.step-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #e9ecef;
+    transition: background-color 0.3s ease;
+}
+
+.step.active .step-indicator {
+    background-color: #E53940;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* Modern Status */
+.publish-status-modern {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 20px;
+}
+
+.publish-status-modern.success {
+    background-color: #e8f5e8;
+    border: 1px solid #c8e6c9;
+}
+
+.publish-status-modern.error {
+    background-color: #ffebee;
+    border: 1px solid #ffcdd2;
+}
+
+.status-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.publish-status-modern.success .status-icon {
+    background-color: #c8e6c9;
+    color: #2e7d32;
+}
+
+.publish-status-modern.error .status-icon {
+    background-color: #ffcdd2;
+    color: #c62828;
+}
+
+.status-content h4 {
+    margin: 0 0 4px 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.publish-status-modern.success .status-content h4 {
+    color: #2e7d32;
+}
+
+.publish-status-modern.error .status-content h4 {
+    color: #c62828;
+}
+
+.status-content p {
+    margin: 0;
+    color: #6c757d;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .modal-content-modern {
+        width: 95%;
+        margin: 20px;
+    }
+    
+    .environment-cards {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .confirmation-buttons-modern {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .button-modern {
+        width: 100%;
+    }
+    
+    .publish-status-modern {
+        flex-direction: column;
+        text-align: center;
+        gap: 12px;
+    }
+}
+
+.publication-status-dots {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    justify-content: center;
+}
+
+.status-dot-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+}
+
+.status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    cursor: help;
+    transition: transform 0.2s ease;
+}
+
+.status-dot:hover {
+    transform: scale(1.2);
+}
+
+.status-dot.published {
+    background-color: #28a745;
+    box-shadow: 0 0 4px rgba(40, 167, 69, 0.4);
+}
+
+.status-dot.not-published {
+    background-color: #dc3545;
+    box-shadow: 0 0 4px rgba(220, 53, 69, 0.4);
+}
+
+.status-label {
+    font-size: 10px;
+    color: #666;
+    font-weight: 500;
+    text-transform: uppercase;
 }
 </style>

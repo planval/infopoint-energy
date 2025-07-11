@@ -60,7 +60,7 @@
             },
             allowedTypes: {
                 type: String,
-                default: '.jpg,.png,.gif',
+                default: '.jpg,.png,.gif,.svg',
             },
             locale: {
                 type: String,
@@ -137,7 +137,12 @@
                 this.$refs.upload.value = null;
             },
             resizeImage(base64, mimeType, onComplete) {
-                if(!['image/jpeg', 'image/png', 'image/gif'].includes(mimeType)) {
+                if(!['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml'].includes(mimeType)) {
+                    return onComplete(base64);
+                }
+
+                // SVG files should not be resized or compressed
+                if(mimeType === 'image/svg+xml') {
                     return onComplete(base64);
                 }
 

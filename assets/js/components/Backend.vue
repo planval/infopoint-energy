@@ -121,6 +121,12 @@
                                 <span class="label">Neuen Eintrag erfassen</span>
                             </router-link>
                         </li>
+                        <li>
+                            <router-link to="/financial-supports/contacts">
+                                <span class="material-icons">contacts</span>
+                                <span class="label">Kontakte</span>
+                            </router-link>
+                        </li>
                     </ul>
                 </li>
                 <li v-if="hasRole('ROLE_EDITOR') && $env.PLUGIN_ENABLE_CONTACTS">

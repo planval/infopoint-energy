@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\File;
 use App\Entity\FinancialSupport;
+use App\Entity\Log;
 use App\Service\FinancialSupportService;
 use App\Service\FtpService;
 use App\Util\PvTrans;
@@ -230,6 +231,72 @@ class ApiFinancialSupportsController extends AbstractController
         }
     }
     
+    #[Route(path: '/publication-status', name: 'publication_status', methods: ['GET'])]
+    public function getPublicationStatus(EntityManagerInterface $em): JsonResponse
+    {
+        try {
+            $financialSupports = $em->getRepository(FinancialSupport::class)->findAll();
+            $result = [];
+            
+            foreach ($financialSupports as $fs) {
+                // Get latest publication logs (both publish and unpublish) for this specific financial support
+                $stagingLog = $em->createQueryBuilder()
+                    ->select('l')
+                    ->from(Log::class, 'l')
+                    ->where('l.context = :context')
+                    ->andWhere('l.category = :staging')
+                    ->andWhere('l.action IN (:actions)')
+                    ->andWhere('l.value LIKE :fsId')
+                    ->setParameter('context', 'financial_support_publish')
+                    ->setParameter('staging', 'staging')
+                    ->setParameter('actions', ['publish', 'unpublish'])
+                    ->setParameter('fsId', '% ID: ' . $fs->getId() . ' %')
+                    ->orderBy('l.createdAt', 'DESC')
+                    ->setMaxResults(1)
+                    ->getQuery()
+                    ->getOneOrNullResult();
+                
+                $productionLog = $em->createQueryBuilder()
+                    ->select('l')
+                    ->from(Log::class, 'l')
+                    ->where('l.context = :context')
+                    ->andWhere('l.category = :production')
+                    ->andWhere('l.action IN (:actions)')
+                    ->andWhere('l.value LIKE :fsId')
+                    ->setParameter('context', 'financial_support_publish')
+                    ->setParameter('production', 'production')
+                    ->setParameter('actions', ['publish', 'unpublish'])
+                    ->setParameter('fsId', '% ID: ' . $fs->getId() . ' %')
+                    ->orderBy('l.createdAt', 'DESC')
+                    ->setMaxResults(1)
+                    ->getQuery()
+                    ->getOneOrNullResult();
+                
+                $result[] = [
+                    'id' => $fs->getId(),
+                    'name' => $fs->getName(),
+                    'isPublic' => $fs->getIsPublic(),
+                    'staging' => ($stagingLog && $stagingLog->getAction() === 'publish') ? [
+                        'publishedAt' => $stagingLog->getCreatedAt()->format('Y-m-d H:i:s'),
+                        'publishedBy' => $stagingLog->getUsername()
+                    ] : null,
+                    'production' => ($productionLog && $productionLog->getAction() === 'publish') ? [
+                        'publishedAt' => $productionLog->getCreatedAt()->format('Y-m-d H:i:s'),
+                        'publishedBy' => $productionLog->getUsername()
+                    ] : null
+                ];
+            }
+            
+            return $this->json($result);
+            
+        } catch (\Exception $e) {
+            return $this->json([
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ], 500);
+        }
+    }
+    
     #[Route(path: '/{id}', name: 'get', methods: ['GET'])]
     #[OA\Response(
         response: 200,
@@ -395,13 +462,49 @@ class ApiFinancialSupportsController extends AbstractController
         if($logo) {
             $file = $em->getRepository(File::class)
                 ->find($logo['id']);
-            $imagick = new \Imagick();
             $data = stream_get_contents($file->getData());
             $data = count(explode(';base64,', $data)) >= 2 ? explode(';base64,', $data, 2)[1] : $data;
-            $imagick->readImageBlob(base64_decode($data));
-
-            $logo = tempnam(sys_get_temp_dir(), 'logo'.$file->getId());
-            file_put_contents($logo, $imagick->getImageBlob());
+            $decodedData = base64_decode($data);
+            
+            // Get file extension from filename or detect from data
+            $filename = $file->getName();
+            $extension = pathinfo($filename, PATHINFO_EXTENSION);
+            if (empty($extension)) {
+                $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                $mime = $finfo->buffer($decodedData);
+                $mimeToExt = [
+                    'image/jpeg' => 'jpg',
+                    'image/png' => 'png',
+                    'image/gif' => 'gif',
+                    'image/svg+xml' => 'svg',
+                    'image/webp' => 'webp'
+                ];
+                $extension = $mimeToExt[$mime] ?? 'png';
+            }
+            
+            // Create temporary file with proper extension
+            $tempLogoPath = tempnam(sys_get_temp_dir(), 'logo'.$file->getId().'_') . '.' . $extension;
+            file_put_contents($tempLogoPath, $decodedData);
+            
+            // Special handling for SVG files - convert to PNG for PDF generation
+            if (strtolower($extension) === 'svg') {
+                $convertedPath = $this->convertSvgToPng($tempLogoPath, $file->getId());
+                if ($convertedPath) {
+                    unlink($tempLogoPath); // Remove the original SVG
+                    $logo = $convertedPath;
+                } else {
+                    // If conversion fails, skip logo
+                    unlink($tempLogoPath);
+                    $logo = null;
+                }
+            } else {
+                // For non-SVG files, use ImageMagick as before
+                $imagick = new \Imagick();
+                $imagick->readImageBlob($decodedData);
+                $logo = tempnam(sys_get_temp_dir(), 'logo'.$file->getId());
+                file_put_contents($logo, $imagick->getImageBlob());
+                unlink($tempLogoPath);
+            }
         }
 
         $mpdf->WriteHTML($this->renderView('pdf/financial-support.html.twig', [
@@ -451,7 +554,8 @@ class ApiFinancialSupportsController extends AbstractController
     public function publish(
         Request $request, 
         FinancialSupportExportService $exportService,
-        FtpService $ftpService
+        FtpService $ftpService,
+        EntityManagerInterface $em
     ): JsonResponse
     {
         try {
@@ -467,32 +571,96 @@ class ApiFinancialSupportsController extends AbstractController
                 ], 400);
             }
             
-            // Generate the ZIP file
-            $zipPath = $exportService->exportAllToZip();
+            // Generate files for direct FTP upload
+            $fileData = $exportService->generateFilesForFtp();
             
-            if (!file_exists($zipPath)) {
-                return $this->json([
-                    'success' => false,
-                    'error' => 'Failed to generate ZIP file'
-                ], 500);
-            }
+            // Upload files directly to FTP
+            $result = $ftpService->uploadFiles(
+                $fileData['base_path'], 
+                $fileData['files'], 
+                $environment
+            );
             
-            // Upload the file to FTP
-            $result = $ftpService->uploadFile($zipPath, $environment);
-            
-            // Clean up the temporary file
-            @unlink($zipPath);
+            // Clean up temporary files
+            $this->cleanupTempFiles($fileData['base_path']);
             
             if (!$result['success']) {
                 return $this->json([
                     'success' => false,
-                    'error' => $result['message']
+                    'error' => $result['error'] ?? $result['message'] ?? 'Upload failed'
                 ], 500);
             }
             
+            // Check for draft items that were previously published in this environment and mark them as unpublished
+            $allFinancialSupports = $em->getRepository(FinancialSupport::class)->findAll();
+            foreach ($allFinancialSupports as $fs) {
+                if (!$fs->getIsPublic()) {
+                    // Check if this specific draft item was previously published in this environment
+                    $previousPublicationLog = $em->createQueryBuilder()
+                        ->select('l')
+                        ->from(Log::class, 'l')
+                        ->where('l.context = :context')
+                        ->andWhere('l.category = :environment')
+                        ->andWhere('l.action = :action')
+                        ->andWhere('l.value LIKE :fsId')
+                        ->setParameter('context', 'financial_support_publish')
+                        ->setParameter('environment', $environment)
+                        ->setParameter('action', 'publish')
+                        ->setParameter('fsId', '% ID: ' . $fs->getId() . ' %')
+                        ->orderBy('l.createdAt', 'DESC')
+                        ->setMaxResults(1)
+                        ->getQuery()
+                        ->getOneOrNullResult();
+                    
+                    if ($previousPublicationLog) {
+                        // Create unpublish log entry for this specific draft item
+                        $unpublishLog = new Log();
+                        $unpublishLog->setCreatedAt(new \DateTime());
+                        $unpublishLog->setContext('financial_support_publish');
+                        $unpublishLog->setCategory($environment);
+                        $unpublishLog->setAction('unpublish');
+                        $unpublishLog->setValue('Financial support unpublished due to draft status - ID: ' . $fs->getId() . ' - Name: ' . $fs->getName());
+                        $unpublishLog->setUsername($this->getUser() ? $this->getUser()->getUserIdentifier() : 'system');
+                        
+                        $em->persist($unpublishLog);
+                    }
+                }
+            }
+            
+            // Create log entries for each published financial support
+            $publishedFinancialSupports = $em->getRepository(FinancialSupport::class)->findBy(['isPublic' => true]);
+            foreach ($publishedFinancialSupports as $fs) {
+                $log = new Log();
+                $log->setCreatedAt(new \DateTime());
+                $log->setContext('financial_support_publish');
+                $log->setCategory($environment);
+                $log->setAction('publish');
+                $log->setValue('Financial support published - ID: ' . $fs->getId() . ' - Name: ' . $fs->getName());
+                $log->setUsername($this->getUser() ? $this->getUser()->getUserIdentifier() : 'system');
+                
+                $em->persist($log);
+            }
+            
+            // Create general log entry for successful publication
+            $generalLog = new Log();
+            $generalLog->setCreatedAt(new \DateTime());
+            $generalLog->setContext('financial_support_publish');
+            $generalLog->setCategory($environment);
+            $generalLog->setAction('publish_summary');
+            $generalLog->setValue('Published ' . count($publishedFinancialSupports) . ' financial supports to ' . $environment);
+            $generalLog->setUsername($this->getUser() ? $this->getUser()->getUserIdentifier() : 'system');
+            
+            $em->persist($generalLog);
+            $em->flush();
+            
             return $this->json([
                 'success' => true,
-                'message' => $result['message']
+                'message' => $result['message'],
+                'details' => [
+                    'total_files' => $result['total_files'] ?? 0,
+                    'uploaded_files' => $result['uploaded_files'] ?? 0,
+                    'failed_files' => count($result['failed_files'] ?? [])
+                ]
             ]);
             
         } catch (\Throwable $e) {
@@ -500,6 +668,135 @@ class ApiFinancialSupportsController extends AbstractController
                 'success' => false,
                 'error' => 'Error during publish operation: ' . $e->getMessage()
             ], 500);
+        }
+    }
+    
+    #[Route(path: '/publication-logs', name: 'publication_logs', methods: ['GET'])]
+    #[IsGranted('ROLE_EDITOR')]
+    #[OA\Response(
+        response: 200,
+        description: 'Returns publication logs for environments',
+        content: new OA\JsonContent(
+            type: 'array',
+            items: new OA\Items(ref: new Model(type: Log::class, groups: ['log']))
+        )
+    )]
+    #[OA\Tag(name: 'Financial Supports')]
+    #[Security(name: 'cookieAuth')]
+    public function getPublicationLogs(EntityManagerInterface $em): JsonResponse
+    {
+        $logs = $em->getRepository(Log::class)->findBy(
+            ['context' => 'financial_support_publish'],
+            ['createdAt' => 'DESC'],
+            10
+        );
+        
+        $result = [];
+        foreach ($logs as $log) {
+            $result[] = [
+                'id' => $log->getId(),
+                'createdAt' => $log->getCreatedAt()->format('Y-m-d H:i:s'),
+                'environment' => $log->getCategory(),
+                'action' => $log->getAction(),
+                'value' => $log->getValue(),
+                'username' => $log->getUsername()
+            ];
+        }
+        
+        return $this->json($result);
+    }
+    
+    /**
+     * Convert SVG to PNG for PDF generation with improved gradient support
+     */
+    private function convertSvgToPng(string $svgPath, int $logoId): ?string
+    {
+        try {
+            // Check if Imagick is available
+            if (!class_exists('Imagick')) {
+                return null;
+            }
+
+            $imagick = new \Imagick();
+            
+            // Set higher resolution for better gradient rendering
+            $imagick->setResolution(600, 600);
+            
+            // Set background color to transparent first to preserve gradients
+            $imagick->setBackgroundColor(new \ImagickPixel('transparent'));
+            
+            // Read the SVG file
+            $imagick->readImage($svgPath);
+            
+            // Convert to PNG with 32-bit color depth for better gradient quality
+            $imagick->setImageFormat('png32');
+            $imagick->setImageColorspace(\Imagick::COLORSPACE_SRGB);
+            $imagick->setImageDepth(8);
+            
+            // Enable better quality rendering
+            $imagick->setImageInterpolateMethod(\Imagick::INTERPOLATE_BICUBIC);
+            
+            // Create a white background image and composite the SVG on top
+            // This preserves gradients while ensuring white background
+            $background = new \Imagick();
+            $background->newImage($imagick->getImageWidth(), $imagick->getImageHeight(), new \ImagickPixel('white'));
+            $background->setImageFormat('png32');
+            
+            // Composite the SVG onto the white background
+            $background->compositeImage($imagick, \Imagick::COMPOSITE_OVER, 0, 0);
+            
+            // Create output path
+            $tempDir = sys_get_temp_dir();
+            $pngPath = tempnam($tempDir, 'logo_' . $logoId . '_converted_') . '.png';
+            
+            // Write the PNG file
+            $background->writeImage($pngPath);
+            
+            // Clean up
+            $imagick->clear();
+            $imagick->destroy();
+            $background->clear();
+            $background->destroy();
+            
+            // Verify the converted file exists and has content
+            if (file_exists($pngPath) && filesize($pngPath) > 0) {
+                return $pngPath;
+            } else {
+                return null;
+            }
+            
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Clean up temporary files and directories
+     */
+    private function cleanupTempFiles(string $basePath): void
+    {
+        if (!is_dir($basePath)) {
+            return;
+        }
+
+        try {
+            $files = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($basePath, \RecursiveDirectoryIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST
+            );
+
+            foreach ($files as $fileinfo) {
+                if ($fileinfo->isDir()) {
+                    rmdir($fileinfo->getRealPath());
+                } else {
+                    unlink($fileinfo->getRealPath());
+                }
+            }
+
+            rmdir($basePath);
+        } catch (\Exception $e) {
+            // Log error but don't fail the request
+            error_log('Failed to cleanup temporary files: ' . $e->getMessage());
         }
     }
 }

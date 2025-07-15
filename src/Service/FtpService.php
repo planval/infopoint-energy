@@ -18,30 +18,37 @@ class FtpService
     {
         $this->params = $params;
         $this->logger = $logger;
-        
-        // Initialize configs from parameters
+
         $this->configs = [
-            'staging' => [
-                'host' => $this->params->get('ftp_staging_host', ''),
-                'port' => 21,
-                'username' => $this->params->get('ftp_staging_username', ''),
-                'password' => $this->params->get('ftp_staging_password', ''),
-                'passive' => false,
-                'timeout' => 30,
-                'base_path' => $this->params->get('ftp_staging_folder', '')
-            ],
-            'production' => [
-                'host' => $this->params->get('ftp_production_host', ''),
-                'port' => 21,
-                'username' => $this->params->get('ftp_production_username', ''),
-                'password' => $this->params->get('ftp_production_password', ''),
-                'passive' => false,
-                'timeout' => 30,
-                'base_path' => $this->params->get('ftp_production_folder', '')
-            ]
+            'staging' => $this->parseFtpUrl($this->params->get('ftp_deployment_staging')),
+            'production' => $this->parseFtpUrl($this->params->get('ftp_deployment_production')),
         ];
     }
 
+    private function parseFtpUrl(string $url, string $defaultBasePath = ''): array
+    {
+        $parts = parse_url($url);
+
+        if (!$parts || !isset($parts['host'], $parts['user'], $parts['pass'])) {
+            throw new \InvalidArgumentException("Invalid FTP URL format: {$url}");
+        }
+
+        $scheme = strtolower($parts['scheme'] ?? 'ftp');
+        if (!in_array($scheme, ['ftp', 'ftps'], true)) {
+            throw new \InvalidArgumentException("Unsupported FTP scheme: {$scheme}");
+        }
+
+        return [
+            'scheme' => $scheme,
+            'host' => $parts['host'],
+            'port' => $parts['port'] ?? 21,
+            'username' => $parts['user'],
+            'password' => $parts['pass'],
+            'passive' => true,
+            'timeout' => 30,
+            'base_path' => rtrim($parts['path'] ?? $defaultBasePath, '/'),
+        ];
+    }
 
     /**
      * Upload files directly to FTP server
@@ -191,26 +198,37 @@ class FtpService
      */
     private function createConnection(array $config)
     {
-        $connection = ftp_connect($config['host'], $config['port'] ?? 21, $config['timeout'] ?? 30);
-        
+        $useSsl = isset($config['scheme']) && strtolower($config['scheme']) === 'ftps';
+
+        $this->logger->info(sprintf(
+            'Connecting to FTP server: %s:%s using %s',
+            $config['host'],
+            $config['port'],
+            $useSsl ? 'FTPS (ftp_ssl_connect)' : 'FTP (ftp_connect)'
+        ));
+
+        $connection = $useSsl
+            ? ftp_ssl_connect($config['host'], $config['port'], $config['timeout'])
+            : ftp_connect($config['host'], $config['port'], $config['timeout']);
+
         if (!$connection) {
-            $this->logger->error('Failed to connect to FTP server', ['host' => $config['host']]);
+            $this->logger->error('Failed to connect to FTP server', [
+                'host' => $config['host'],
+                'ssl' => $useSsl,
+            ]);
             return false;
         }
-        
+
         if (!ftp_login($connection, $config['username'], $config['password'])) {
             $this->logger->error('FTP login failed', ['username' => $config['username']]);
             ftp_close($connection);
             return false;
         }
-        
-        // Set passive mode if configured
-        if ($config['passive'] ?? true) {
-            if (!ftp_pasv($connection, true)) {
-                $this->logger->warning('Failed to set passive mode');
-            }
+
+        if (!ftp_pasv($connection, $config['passive'] ?? true)) {
+            $this->logger->warning('Failed to enable passive mode');
         }
-        
+
         return $connection;
     }
 

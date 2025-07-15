@@ -12,14 +12,8 @@ parameters:
     chmos_certificate: '%env(resolve:CHMOS_CERTIFICATE)%'
     tpoint_url: '%env(TPOINT_URL)%'
     node_js: '%env(NODE_JS)%'
-    ftp_staging_host: '%env(FTP_STAGING_HOST)%'
-    ftp_staging_username: '%env(FTP_STAGING_USERNAME)%'
-    ftp_staging_password: '%env(FTP_STAGING_PASSWORD)%'
-    ftp_staging_folder: '%env(FTP_STAGING_FOLDER)%'
-    ftp_production_host: '%env(FTP_PRODUCTION_HOST)%'
-    ftp_production_username: '%env(FTP_PRODUCTION_USERNAME)%'
-    ftp_production_password: '%env(FTP_PRODUCTION_PASSWORD)%'
-    ftp_production_folder: '%env(FTP_PRODUCTION_FOLDER)%'
+    ftp_deployment_staging: '%env(FTP_DEPLOYMENT_STAGING)%'
+    ftp_deployment_production: '%env(FTP_DEPLOYMENT_PRODUCTION)%'
 
 services:
     # default configuration for services in *this* file

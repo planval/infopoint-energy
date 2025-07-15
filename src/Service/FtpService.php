@@ -44,7 +44,7 @@ class FtpService
             'port' => $parts['port'] ?? 21,
             'username' => $parts['user'],
             'password' => $parts['pass'],
-            'passive' => true,
+            'passive' => false,
             'timeout' => 30,
             'base_path' => rtrim($parts['path'] ?? $defaultBasePath, '/'),
         ];

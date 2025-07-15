@@ -1617,7 +1617,7 @@ class FinancialSupportExportService
             }
             
             // Person details for person contacts
-            if ($contact['type'] === 'person' || !isset($contact['type'])) {
+            if (!isset($contact['type']) || $contact['type'] === 'person') {
                 $personName = '';
                 if (!empty($contact['salutation'])) {
                     $personName .= ($contact['salutation'] === 'm' ? 'Herr ' : 'Frau ');

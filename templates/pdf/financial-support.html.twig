@@ -6,23 +6,23 @@
         <style>
             body {
                 font-family: "Noto Sans", Noto Sans, Arial, sans-serif;
-                font-size: 14px;
+                font-size: 12px;
                 font-weight: normal;
                 color: #141C22;
             }
 
             h1 {
-                font-size: 38px;
+                font-size: 32px;
                 color: #D8232A;
             }
 
             h2 {
-                font-size: 18px;
+                font-size: 16px;
                 margin-top: 40px;
             }
 
             h3 {
-                font-size: 14px;
+                font-size: 12px;
             }
 
             h1,
@@ -36,7 +36,7 @@
             }
 
             a {
-                color: #141C22;
+                color: #D8232A;
                 text-decoration: none;
             }
 
@@ -166,15 +166,13 @@
                             {% if contact.email|default or contact.phone|default or contact.website|default %}
                                 <p style="margin: 5px 0 0 0;">
                                     {% if contact.email|default %}
-                                        <a href="mailto:{{ contact.email }}" style="color: #D8232A; text-decoration: none;">{{ contact.email }}</a>
-                                        {% if contact.phone|default or contact.website|default %}<br>{% endif %}
+                                        <a href="mailto:{{ contact.email }}" style="color: #D8232A; text-decoration: none;">{{ contact.email }}</a><br>
                                     {% endif %}
                                     {% if contact.phone|default %}
-                                        {{ contact.phone }}
-                                        {% if contact.website|default %}<br>{% endif %}
+                                        {{ contact.phone }}<br>
                                     {% endif %}
                                     {% if contact.website|default %}
-                                        <a href="{{ contact.website }}" target="_blank" style="color: #D8232A; text-decoration: none;">{{ contact.website }}</a>
+                                        <a href="{{ contact.website }}" target="_blank">{{ contact.website }}</a><br>
                                     {% endif %}
                                 </p>
                             {% endif %}
@@ -228,13 +226,6 @@
                     </div>
                 {% endif %}
 
-                {% if financialSupport.assignment %}
-                    <h2>{{ translations['Zuteilung'] is defined ? translations['Zuteilung'] : ('Zuteilung' |trans) }}</h2>
-                    <div class="list">
-                        <div class="list-item">{{ pv_trans(financialSupport, 'assignment', app.request.locale) }}</div>
-                    </div>
-                {% endif %}
-
                 {% if financialSupport.fundingProvider %}
                     <h2>{{ translations['Förderstelle'] is defined ? translations['Förderstelle'] : ('Förderstelle'|trans) }}</h2>
                     <div class="list">
@@ -244,7 +235,7 @@
 
                 {% if financialSupport.instruments|length > 0 %}
                     <h2>{{ translations['Unterstützungsform'] is defined ? translations['Unterstützungsform'] : ('Unterstützungsform'|trans) }}</h2>
-                    <div class="list">
+                    <ul class="list">
                         {% set instruments = [] %}
                         {% set other_instrument_value = null %}
                         {% for instrument in financialSupport.instruments %}
@@ -263,13 +254,15 @@
                         {% if other_instrument_value is not null %}
                             {% set instruments = instruments|merge([other_instrument_value]) %}
                         {% endif %}
-                        <div class="list-item">{{ instruments|join(', ') }}</div>
-                    </div>
+                        {% for instrument in instruments %}
+                            <li class="list-item">{{ instrument }}</li>
+                        {% endfor %}
+                    </ul>
                 {% endif %}
 
                 {% if financialSupport.beneficiaries|length > 0 %}
                     <h2>{{ translations['Begünstigte'] is defined ? translations['Begünstigte'] : ('Begünstigte'|trans) }}</h2>
-                    <div class="list">
+                    <ul class="list">
                         {% set beneficiaries = [] %}
                         {% set other_beneficiary_value = null %}
                         {% for beneficiary in financialSupport.beneficiaries %}
@@ -288,35 +281,37 @@
                         {% if other_beneficiary_value is not null %}
                             {% set beneficiaries = beneficiaries|merge([other_beneficiary_value]) %}
                         {% endif %}
-                        <div class="list-item">{{ beneficiaries|join(', ') }}</div>
-                    </div>
+                        {% for beneficiary in beneficiaries %}
+                            <li class="list-item">{{ beneficiary }}</li>
+                        {% endfor %}
+                    </ul>
                 {% endif %}
 
                 {% if financialSupport.topics is not empty %}
                     <h2>{{ translations['Themenschwerpunkt'] is defined ? translations['Themenschwerpunkt'] : ('Themenschwerpunkt' |trans) }}</h2>
-                    <div class="list">
+                    <ul class="list">
                         {% for topic in financialSupport.topics %}
-                            <div class="list-item">{{ pv_trans(topic, 'name', app.request.locale) }}</div>
+                            <li class="list-item">{{ pv_trans(topic, 'name', app.request.locale) }}</li>
                         {% endfor %}
-                    </div>
+                    </ul>
                 {% endif %}
 
                 {% if financialSupport.projectTypes is not empty %}
                     <h2>{{ translations['Innovationsphasen'] is defined ? translations['Innovationsphasen'] : ('Innovationsphasen' |trans) }}</h2>
-                    <div class="list">
+                    <ul class="list">
                         {% for projectType in financialSupport.projectTypes %}
-                            <div class="list-item">{{ pv_trans(projectType, 'name', app.request.locale) }}</div>
+                            <li class="list-item">{{ pv_trans(projectType, 'name', app.request.locale) }}</li>
                         {% endfor %}
-                    </div>
+                    </ul>
                 {% endif %}
 
                 {% if financialSupport.geographicRegions is not empty %}
                     <h2>{{ translations['Fördergebiet'] is defined ? translations['Fördergebiet'] : ('Fördergebiet' |trans) }}</h2>
-                    <div class="list">
+                    <ul class="list">
                         {% for geographicRegion in financialSupport.geographicRegions %}
-                            <div class="list-item">{{ pv_trans(geographicRegion, 'name', app.request.locale) }}</div>
+                            <li class="list-item">{{ pv_trans(geographicRegion, 'name', app.request.locale) }}</li>
                         {% endfor %}
-                    </div>
+                    </ul>
                 {% endif %}
             </div>
         </div>

@@ -568,6 +568,18 @@ export default {
                         'undo',
                         'redo',
                     ]
+                },
+                link: {
+                    decorators: {
+                        openInNewTab: {
+                            mode: 'automatic',
+                            callback: () => true, // Applies to all links
+                            attributes: {
+                                target: '_blank',
+                                rel: 'noopener noreferrer'
+                            }
+                        }
+                    }
                 }
             },
         };

@@ -1307,63 +1307,63 @@ class FinancialSupportExportService
     private function convertSvgToPng(string $svgPath, int $logoId, string $locale): ?string
     {
         try {
-            // Check if Imagick is available
             if (!class_exists('Imagick')) {
                 error_log("Imagick not available for SVG conversion, skipping logo conversion");
                 return null;
             }
 
-            $imagick = new \Imagick();
-            
-            // Set higher resolution for better gradient rendering
-            $imagick->setResolution(600, 600);
-            
-            // Set background color to transparent first to preserve gradients
-            $imagick->setBackgroundColor(new \ImagickPixel('transparent'));
-            
-            // Read the SVG file
-            $imagick->readImage($svgPath);
-            
-            // Convert to PNG with 32-bit color depth for better gradient quality
-            $imagick->setImageFormat('png32');
-            $imagick->setImageColorspace(\Imagick::COLORSPACE_SRGB);
-            $imagick->setImageDepth(8);
-            
-            // Enable better quality rendering
-            $imagick->setImageInterpolateMethod(\Imagick::INTERPOLATE_BICUBIC);
-            
-            // Create a white background image and composite the SVG on top
-            // This preserves gradients while ensuring white background
-            $background = new \Imagick();
-            $background->newImage($imagick->getImageWidth(), $imagick->getImageHeight(), new \ImagickPixel('white'));
-            $background->setImageFormat('png32');
-            
-            // Composite the SVG onto the white background
-            $background->compositeImage($imagick, \Imagick::COMPOSITE_OVER, 0, 0);
-            
-            // Create output path
-            $tempDir = sys_get_temp_dir();
-            $pngPath = tempnam($tempDir, 'logo_' . $logoId . '_converted_') . '.png';
-            
-            // Write the PNG file
-            $background->writeImage($pngPath);
-            
-            // Clean up
-            $imagick->clear();
-            $imagick->destroy();
-            $background->clear();
-            $background->destroy();
-            
-            // Verify the converted file exists and has content
-            if (file_exists($pngPath) && filesize($pngPath) > 0) {
-                error_log("Successfully converted SVG to PNG: " . $pngPath . " (" . filesize($pngPath) . " bytes)");
-                return $pngPath;
-            } else {
-                error_log("PNG conversion failed or resulted in empty file");
+            // Build a deterministic cache key for this specific SVG content + locale
+            $cacheKey = sprintf('financial-support-logo-svg2png-%d-%s.png', $logoId, $locale);
+
+            // Cache the *PNG bytes*. On a hit we just write them to a temp file and return the path.
+            $pngBytes = $this->cache->get($cacheKey, function (ItemInterface $item) use ($svgPath, $logoId, $locale) {
+                // Reasonable TTL; adjust to your rotation cycle
+                $item->expiresAfter(3600 * 24 * 31 * 6); // ~6 months
+
+                $imagick = new \Imagick();
+                $imagick->setResolution(600, 600);
+                $imagick->setBackgroundColor(new \ImagickPixel('transparent'));
+                $imagick->readImage($svgPath);
+                $imagick->setImageFormat('png32');
+                $imagick->setImageColorspace(\Imagick::COLORSPACE_SRGB);
+                $imagick->setImageDepth(8);
+                $imagick->setImageInterpolateMethod(\Imagick::INTERPOLATE_BICUBIC);
+
+                // Composite on white (preserve gradients + predictable background)
+                $background = new \Imagick();
+                $background->newImage($imagick->getImageWidth(), $imagick->getImageHeight(), new \ImagickPixel('white'));
+                $background->setImageFormat('png32');
+                $background->compositeImage($imagick, \Imagick::COMPOSITE_OVER, 0, 0);
+
+                // Return *bytes* to cache (no temp file lives in the cache)
+                $bytes = $background->getImageBlob();
+
+                $imagick->clear();      $imagick->destroy();
+                $background->clear();   $background->destroy();
+
+                if (!is_string($bytes) || $bytes === '') {
+                    throw new \RuntimeException('PNG conversion produced empty data');
+                }
+
+                error_log("Converted SVG to PNG for caching (logoId=$logoId, locale=$locale, bytes=".strlen($bytes).")");
+                return $bytes;
+            });
+
+            // Materialize cached bytes to a temp file path for the caller
+            $temp = tempnam(sys_get_temp_dir(), 'logo_' . $logoId . '_converted_');
+            $pngPath = $temp . '.png';
+            @rename($temp, $pngPath);
+
+            if (@file_put_contents($pngPath, $pngBytes) === false || !file_exists($pngPath) || filesize($pngPath) <= 0) {
+                @is_file($pngPath) && @unlink($pngPath);
+                error_log("PNG write failed after cache retrieval");
                 return null;
             }
-            
-        } catch (\Exception $e) {
+
+            error_log("Using cached PNG at: {$pngPath} (" . filesize($pngPath) . " bytes)");
+            return $pngPath;
+
+        } catch (\Throwable $e) {
             error_log("Error converting SVG to PNG: " . $e->getMessage());
             return null;
         }

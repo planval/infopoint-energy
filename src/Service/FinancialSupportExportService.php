@@ -726,9 +726,6 @@ class FinancialSupportExportService
         }
     }
 
-    use Symfony\Contracts\Cache\ItemInterface;
-    use Mpdf\Mpdf;
-
     private function generatePdf(FinancialSupport $financialSupport, string $outputPath, ?array $logoData = null, string $locale = 'de'): void
     {
         try {

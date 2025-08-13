@@ -491,143 +491,87 @@ class FinancialSupportExportService
 
     private function fetchLogoData(FinancialSupport $financialSupport, string $locale = 'de'): ?array
     {
-        // Check cache first
-        $cacheKey = $financialSupport->getId() . '_' . $locale;
-        if (isset($this->logoDataCache[$cacheKey])) {
-            error_log("Using cached logo data for ID " . $financialSupport->getId() . " with locale " . $locale);
-            return $this->logoDataCache[$cacheKey];
+        // request-run in-memory cache
+        $memKey = $financialSupport->getId() . '_' . $locale;
+        if (isset($this->logoDataCache[$memKey])) {
+            error_log("Using cached logo data for ID {$financialSupport->getId()} with locale {$locale}");
+            return $this->logoDataCache[$memKey];
         }
 
         try {
-            // Get the logo from the specific locale in translations if available
+            // resolve $logo (translations → fallback)
             $logo = null;
-            
-            // First try to get the logo from translations for non-German locales
             if ($locale !== 'de') {
                 $translations = $financialSupport->getTranslations();
-                if (isset($translations[$locale]['logo']) && !empty($translations[$locale]['logo']['id'])) {
+                if (!empty($translations[$locale]['logo']['id'])) {
                     $logo = $translations[$locale]['logo'];
-                    error_log("Found translated logo for locale {$locale}, ID: " . $logo['id']);
+                    error_log("Found translated logo for locale {$locale}, ID: {$logo['id']}");
                 } else {
-                    error_log("No logo found in translations for locale {$locale}, falling back to default");
+                    error_log("No translated logo for {$locale}, falling back to default");
                 }
             }
-            
-            // If no translated logo found, fall back to default logo
             if ($logo === null) {
                 $logo = $financialSupport->getLogo();
-                if ($logo && isset($logo['id'])) {
-                    error_log("Using default logo, ID: " . $logo['id'] . " for locale: " . $locale);
+                if (!empty($logo['id'])) {
+                    error_log("Using default logo, ID: {$logo['id']} for locale: {$locale}");
                 }
             }
-            
-            if (!$logo || !isset($logo['id'])) {
-                error_log('No logo found for financial support ID: ' . $financialSupport->getId() . ' with locale: ' . $locale);
+            if (empty($logo['id'])) {
+                error_log("No logo for financial support ID: {$financialSupport->getId()} / {$locale}");
                 return null;
             }
 
-            // Detach and refresh the entity manager to ensure we get fresh data
-            $this->em->clear();
-            
-            // Fetch the file entity fresh from the database
             $file = $this->em->getRepository(\App\Entity\File::class)->find($logo['id']);
-            if (!$file) {
-                error_log('Logo file not found in database for ID: ' . $logo['id'] . ' with locale: ' . $locale);
-                return null;
+            $updated = method_exists($file, 'getUpdatedAt') && $file->getUpdatedAt() ? $file->getUpdatedAt()->format('YmdHis') : 'na';
+            $symfonyKey = sprintf('logo-data-%d-%s-%s', $logo['id'], $locale, $updated);
+
+            $result = $this->cache->get($symfonyKey, function (ItemInterface $item) use ($logo, $locale) {
+                $item->expiresAfter(3600 * 24 * 31 * 6); // ~6 months
+
+                $file = $this->em->getRepository(\App\Entity\File::class)->find($logo['id']);
+                if (!$file) {
+                    error_log("Logo file not found (ID {$logo['id']}) / {$locale}");
+                    return null;
+                }
+
+                $data = $file->getData();
+
+                if (is_resource($data)) {
+                    @rewind($data);
+                    $data = stream_get_contents($data);
+                }
+
+                if (!is_string($data) || $data === '') {
+                    error_log("Empty/invalid blob for logo ID {$logo['id']} / {$locale}");
+                    return null;
+                }
+
+                if (strncmp($data, 'data:', 5) === 0) {
+                    $parts = explode(';base64,', $data, 2);
+                    if (count($parts) === 2) {
+                        $decoded = base64_decode($parts[1], true);
+                        if ($decoded !== false) {
+                            $data = $decoded;
+                        }
+                    }
+                }
+
+                $name = $logo['name'] ?? (method_exists($file, 'getName') ? $file->getName() : ('logo_' . $file->getId()));
+
+                return [
+                    'data' => $data,
+                    'name' => $name,
+                    'id'   => $file->getId(),
+                ];
+            });
+
+            if ($result) {
+                $this->logoDataCache[$memKey] = $result;
             }
 
-            // Get the raw data from the blob
-            $fileData = $file->getData();
-            if (!$fileData) {
-                error_log('File data is null for logo ID: ' . $logo['id'] . ' with locale: ' . $locale);
-                return null;
-            }
-            
-            $data = stream_get_contents($fileData);
-            if ($data === false) {
-                error_log('Failed to read data from file blob for logo ID: ' . $logo['id'] . ' with locale: ' . $locale);
-                return null;
-            }
-            
-            $initialDataLength = strlen($data);
-            error_log('Initial logo data length for ID ' . $logo['id'] . ' with locale ' . $locale . ': ' . $initialDataLength . ' bytes');
-            
-            if ($initialDataLength === 0) {
-                error_log('Logo data is empty for ID: ' . $logo['id'] . ' with locale: ' . $locale);
-                
-                // Try a different approach - fetch directly from database using a new connection
-                try {
-                    error_log('Attempting direct database fetch for logo ID: ' . $logo['id']);
-                    
-                    // Get database connection parameters from the entity manager
-                    $conn = $this->em->getConnection();
-                    $params = $conn->getParams();
-                    
-                    // Create a new PDO connection
-                    $dsn = sprintf('mysql:host=%s;dbname=%s;charset=utf8', $params['host'], $params['dbname']);
-                    $pdo = new \PDO($dsn, $params['user'], $params['password']);
-                    
-                    // Get the data directly from the database
-                    $stmt = $pdo->prepare('SELECT data FROM file WHERE id = ?');
-                    $stmt->execute([$logo['id']]);
-                    $blobData = $stmt->fetchColumn();
-                    
-                    if ($blobData && strlen($blobData) > 0) {
-                        error_log('Successfully fetched ' . strlen($blobData) . ' bytes directly from database for logo ID: ' . $logo['id']);
-                        $data = $blobData;
-                    } else {
-                        error_log('Failed to fetch data directly from database for logo ID: ' . $logo['id']);
-                        return null;
-                    }
-                } catch (\Throwable $dbEx) {
-                    error_log('Error in direct database fetch: ' . $dbEx->getMessage());
-                    return null;
-                }
-            }
-            
-            // Handle data URI format if present
-            if (strpos($data, 'data:') === 0 && strpos($data, ';base64,') !== false) {
-                error_log('Logo data is in data URI format, extracting base64 part');
-                // Extract the base64 part and decode it
-                $parts = explode(';base64,', $data);
-                if (count($parts) < 2) {
-                    error_log('Invalid data URI format for logo ID: ' . $logo['id'] . ' with locale: ' . $locale);
-                    return null;
-                }
-                
-                $base64Data = $parts[1];
-                $binaryData = base64_decode($base64Data, true);
-                if ($binaryData === false) {
-                    error_log('Failed to decode base64 data for logo ID: ' . $logo['id'] . ' with locale: ' . $locale);
-                    return null;
-                }
-                $data = $binaryData;
-                error_log('Converted data URI to binary data, new length: ' . strlen($data) . ' bytes');
-            }
-            
-            // If data is still empty after processing, return null
-            if (empty($data)) {
-                error_log('Logo data is empty after processing for ID: ' . $logo['id'] . ' with locale: ' . $locale);
-                return null;
-            }
-            
-            // Log the final data length
-            error_log('Final logo data length for ID ' . $logo['id'] . ' with locale ' . $locale . ': ' . strlen($data) . ' bytes');
-            
-            // Return only if we have actual data
-            $result = [
-                'data' => $data,
-                'name' => $logo['name'],
-                'id' => $file->getId()
-            ];
-            
-            // Cache the result
-            $this->logoDataCache[$cacheKey] = $result;
-            
             return $result;
         } catch (\Throwable $e) {
-            // Log error for debugging
-            error_log('Error processing logo data: ' . $e->getMessage() . ' for logo ID: ' . ($logo['id'] ?? 'unknown') . ' with locale: ' . $locale);
+            error_log('Error processing logo data: ' . $e->getMessage() . ' for logo ID: ' . ($logo['id'] ?? 'unknown') . " / {$locale}");
             return null;
         }
     }

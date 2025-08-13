@@ -10,6 +10,8 @@ use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Translation\TranslatorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface as TranslatorInterfaceNew;
+use Symfony\Contracts\Cache\CacheInterface;
+use Symfony\Contracts\Cache\ItemInterface;
 use Twig\Environment;
 
 class FinancialSupportExportService
@@ -19,6 +21,8 @@ class FinancialSupportExportService
     private $requestStack;
     private $params;
     private $translator;
+    private $cache;
+
     private $logoDataCache = []; // Cache for logo data to prevent repeated database fetches
 
     public function __construct(
@@ -26,13 +30,15 @@ class FinancialSupportExportService
         Environment $twig,
         RequestStack $requestStack,
         ParameterBagInterface $params,
-        TranslatorInterfaceNew $translator
+        TranslatorInterfaceNew $translator,
+        CacheInterface $cache
     ) {
         $this->em = $em;
         $this->twig = $twig;
         $this->requestStack = $requestStack;
         $this->params = $params;
         $this->translator = $translator;
+        $this->cache = $cache;
     }
 
     private function cleanup(): void
@@ -720,161 +726,177 @@ class FinancialSupportExportService
         }
     }
 
+    use Symfony\Contracts\Cache\ItemInterface;
+    use Mpdf\Mpdf;
+
     private function generatePdf(FinancialSupport $financialSupport, string $outputPath, ?array $logoData = null, string $locale = 'de'): void
     {
         try {
-            $mpdf = new Mpdf([
-                'fontDir' => [
-                    __DIR__.'/../../assets/fonts/',
-                ],
-                'fontdata' => [
-                    'notosans' => [
-                        'R' => 'NotoSans.ttf',
-                        'B' => 'NotoSans.ttf',
-                        'I' => 'NotoSans-Italic.ttf',
-                    ]
-                ],
-                'margin_left' => 20,
-                'margin_right' => 15,
-                'margin_top' => 20,
-                'margin_bottom' => 25,
-                'margin_header' => 10,
-                'margin_footer' => 10,
-                'default_font' => 'notosans',
-            ]);
 
-            // Use the provided locale
-            $mpdf->SetTitle(PvTrans::translate($financialSupport, 'name', $locale));
-            $mpdf->SetDisplayMode('fullpage');
-            $mpdf->shrink_tables_to_fit = 1;
+            $lastChange = ($financialSupport->getUpdatedAt() ?: $financialSupport->getCreatedAt())
+                ->format('Y-m-d-H-i-s');
 
-            // If no logo data provided, fetch it with the correct locale
-            if (!$logoData) {
-                $logoData = $this->fetchLogoData($financialSupport, $locale);
-            }
+            $cacheKey = sprintf(
+                'financial-support-%s-%s-%s.pdf',
+                $financialSupport->getId(),
+                $locale,
+                $lastChange
+            );
 
-            $tempLogoPath = null;
-            if ($logoData && !empty($logoData['data'])) {
-                // Create a unique temp file with proper file extension based on the logo name
-                $extension = pathinfo($logoData['name'], PATHINFO_EXTENSION);
-                if (empty($extension)) {
-                    $finfo = new \finfo(FILEINFO_MIME_TYPE);
-                    $mime = $finfo->buffer($logoData['data']);
-                    $mimeToExt = [
-                        'image/jpeg' => 'jpg',
-                        'image/png' => 'png',
-                        'image/gif' => 'gif',
-                        'image/svg+xml' => 'svg',
-                        'image/webp' => 'webp'
-                    ];
-                    $extension = $mimeToExt[$mime] ?? 'png';
+            $pdfBytes = $this->cache->get($cacheKey, function (ItemInterface $item) use ($financialSupport, $logoData, $locale) {
+
+                $item->expiresAfter(3600 * 24 * 31 * 6);
+
+                $mpdf = new Mpdf([
+                    'fontDir' => [__DIR__ . '/../../assets/fonts/'],
+                    'fontdata' => [
+                        'notosans' => [
+                            'R' => 'NotoSans.ttf',
+                            'B' => 'NotoSans.ttf',
+                            'I' => 'NotoSans-Italic.ttf',
+                        ],
+                    ],
+                    'margin_left'   => 20,
+                    'margin_right'  => 15,
+                    'margin_top'    => 20,
+                    'margin_bottom' => 25,
+                    'margin_header' => 10,
+                    'margin_footer' => 10,
+                    'default_font'  => 'notosans',
+                ]);
+
+                $mpdf->SetTitle(PvTrans::translate($financialSupport, 'name', $locale));
+                $mpdf->SetDisplayMode('fullpage');
+                $mpdf->shrink_tables_to_fit = 1;
+
+                // If no logo data provided, fetch it with the correct locale
+                if (!$logoData) {
+                    $logoData = $this->fetchLogoData($financialSupport, $locale);
                 }
-                
-                $tempDir = sys_get_temp_dir();
-                $tempLogoPath = tempnam($tempDir, 'logo_' . $logoData['id'] . '_');
-                
-                // Rename the temp file to have the proper extension
-                $tempLogoPathWithExt = $tempLogoPath . '.' . $extension;
-                rename($tempLogoPath, $tempLogoPathWithExt);
-                $tempLogoPath = $tempLogoPathWithExt;
-                
-                $bytesWritten = file_put_contents($tempLogoPath, $logoData['data']);
-                if ($bytesWritten === false) {
-                    error_log("Failed to write temporary logo file for PDF generation, financial support ID: " . $financialSupport->getId() . ", locale: " . $locale);
-                    $tempLogoPath = null;
-                } else {
-                    error_log("Successfully wrote temporary logo for PDF, Size: " . $bytesWritten . " bytes, Path: " . $tempLogoPath . ", locale: " . $locale);
-                    
-                    // Validate the logo file
-                    $this->validateImageFile($tempLogoPath, "PDF_LOGO_" . strtoupper($locale));
-                    
-                    // Special handling for SVG files - convert to PNG for PDF generation
-                    if ($extension === 'svg') {
-                        $convertedPath = $this->convertSvgToPng($tempLogoPath, $logoData['id'], $locale);
-                        if ($convertedPath) {
-                            unlink($tempLogoPath); // Remove the original SVG
-                            $tempLogoPath = $convertedPath;
-                            error_log("Successfully converted SVG to PNG for PDF generation: " . $tempLogoPath);
-                        } else {
-                            error_log("Failed to convert SVG to PNG for PDF generation, will not use logo. Locale: " . $locale);
-                            unlink($tempLogoPath);
-                            $tempLogoPath = null;
-                        }
+
+                $tempLogoPath = null;
+                if ($logoData && !empty($logoData['data'])) {
+                    $extension = pathinfo($logoData['name'] ?? '', PATHINFO_EXTENSION);
+                    if (empty($extension)) {
+                        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                        $mime = $finfo->buffer($logoData['data']);
+                        $mimeToExt = [
+                            'image/jpeg' => 'jpg',
+                            'image/png' => 'png',
+                            'image/gif' => 'gif',
+                            'image/svg+xml' => 'svg',
+                            'image/webp' => 'webp',
+                        ];
+                        $extension = $mimeToExt[$mime] ?? 'png';
+                    }
+
+                    $tempDir = sys_get_temp_dir();
+                    $tempLogoPath = tempnam($tempDir, 'logo_' . ($logoData['id'] ?? 'x') . '_');
+                    $tempLogoPathWithExt = $tempLogoPath . '.' . $extension;
+                    @rename($tempLogoPath, $tempLogoPathWithExt);
+                    $tempLogoPath = $tempLogoPathWithExt;
+
+                    $bytesWritten = @file_put_contents($tempLogoPath, $logoData['data']);
+                    if ($bytesWritten === false) {
+                        error_log("Failed to write temporary logo file for PDF generation, financial support ID: " . $financialSupport->getId() . ", locale: " . $locale);
+                        $tempLogoPath = null;
                     } else {
-                        // For non-SVG files, validate with getimagesize
-                        if (!getimagesize($tempLogoPath)) {
-                            error_log("Logo is not a valid image for PDF generation, will not use it. Locale: " . $locale);
-                            unlink($tempLogoPath);
-                            $tempLogoPath = null;
+                        error_log("Successfully wrote temporary logo for PDF, Size: " . $bytesWritten . " bytes, Path: " . $tempLogoPath . ", locale: " . $locale);
+
+                        $this->validateImageFile($tempLogoPath, "PDF_LOGO_" . strtoupper($locale));
+
+                        if ($extension === 'svg') {
+                            $convertedPath = $this->convertSvgToPng($tempLogoPath, $logoData['id'] ?? 'x', $locale);
+                            if ($convertedPath) {
+                                @unlink($tempLogoPath);
+                                $tempLogoPath = $convertedPath;
+                                error_log("Successfully converted SVG to PNG for PDF generation: " . $tempLogoPath);
+                            } else {
+                                error_log("Failed to convert SVG to PNG for PDF generation, will not use logo. Locale: " . $locale);
+                                @unlink($tempLogoPath);
+                                $tempLogoPath = null;
+                            }
+                        } else {
+                            if (!@getimagesize($tempLogoPath)) {
+                                error_log("Logo is not a valid image for PDF generation, will not use it. Locale: " . $locale);
+                                @unlink($tempLogoPath);
+                                $tempLogoPath = null;
+                            }
                         }
                     }
                 }
-            }
 
-            // Create a proper request with the locale
-            $request = new \Symfony\Component\HttpFoundation\Request();
-            $request->setLocale($locale);
-            
-            // Set the request in the stack to make app.request.locale work
-            $currentRequest = $this->requestStack->getCurrentRequest();
-            $this->requestStack->push($request);
-            
-            // Create translations for the template
-            $translations = [];
-            $transFiles = ['Kurzbeschrieb', 'Teilnahmekriterien', 'Ausschlusskriterien', 'Finanzierung', 'Beantragung', 
-                           'Tipps zur Beantragung', 'Kontakt', 'Mehr Informationen', 'Termine', 'Laufzeit', 'Thema', 'Zuteilung',
-                           'Start', 'Ende', 'Zuteilung', 'Förderstelle', 'Unterstützungsform', 
-                           'Begünstigte', 'Themenschwerpunkt', 'Innovationsphasen', 'Fördergebiet'];
-            
-            foreach ($transFiles as $key) {
-                $translations[$key] = $this->translator->trans($key, [], null, $locale);
-            }
-            
-            error_log("Generating PDF with locale: $locale - Sample translations: Kurzbeschrieb -> " . $translations['Kurzbeschrieb']);
+                // Request/locale scaffolding
+                $request = new \Symfony\Component\HttpFoundation\Request();
+                $request->setLocale($locale);
 
-            // Format assignment value for display in the PDF
-            // Apply formatting for all assignment values, not just 'beides'
-            if ($financialSupport->getAssignment()) {
-                $clonedFinancialSupport = clone $financialSupport;
-                $formattedAssignment = $this->formatAssignmentForDisplay($financialSupport->getAssignment(), $locale);
-                $clonedFinancialSupport->setAssignment($formattedAssignment);
-                $financialSupport = $clonedFinancialSupport;
-            }
+                $currentRequest = $this->requestStack->getCurrentRequest();
+                $this->requestStack->push($request);
 
-            // Pass everything to the template
-            $html = $this->twig->render('pdf/financial-support.html.twig', [
-                'financialSupport' => $financialSupport,
-                'logo' => $tempLogoPath,
-                'app' => ['request' => $request],
-                'locale' => $locale,
-                'translations' => $translations
-            ]);
-            
-            // Restore the original request
-            if ($currentRequest) {
-                $this->requestStack->pop();
-                $this->requestStack->push($currentRequest);
+                // Translations for template
+                $translations = [];
+                $transFiles = [
+                    'Kurzbeschrieb', 'Teilnahmekriterien', 'Ausschlusskriterien', 'Finanzierung', 'Beantragung',
+                    'Tipps zur Beantragung', 'Kontakt', 'Mehr Informationen', 'Termine', 'Laufzeit', 'Thema', 'Zuteilung',
+                    'Start', 'Ende', 'Zuteilung', 'Förderstelle', 'Unterstützungsform',
+                    'Begünstigte', 'Themenschwerpunkt', 'Innovationsphasen', 'Fördergebiet'
+                ];
+
+                foreach ($transFiles as $key) {
+                    $translations[$key] = $this->translator->trans($key, [], null, $locale);
+                }
+
+                // Format assignment for display
+                $fsForTemplate = $financialSupport;
+                if ($financialSupport->getAssignment()) {
+                    $cloned = clone $financialSupport;
+                    $cloned->setAssignment($this->formatAssignmentForDisplay($financialSupport->getAssignment(), $locale));
+                    $fsForTemplate = $cloned;
+                }
+
+                // Render HTML
+                $html = $this->twig->render('pdf/financial-support.html.twig', [
+                    'financialSupport' => $fsForTemplate,
+                    'logo'             => $tempLogoPath,
+                    'app'              => ['request' => $request],
+                    'locale'           => $locale,
+                    'translations'     => $translations,
+                ]);
+
+                // Restore original request
+                if ($currentRequest) {
+                    $this->requestStack->pop();
+                    $this->requestStack->push($currentRequest);
+                }
+
+                // Generate *binary* PDF and clean up temp logo
+                $mpdf->WriteHTML($html);
+                $bytes = $mpdf->Output('', \Mpdf\Output\Destination::STRING_RETURN);
+
+                if ($tempLogoPath && file_exists($tempLogoPath)) {
+                    @unlink($tempLogoPath);
+                    error_log("Deleted temporary logo file: " . $tempLogoPath);
+                }
+
+                if (!is_string($bytes) || $bytes === '') {
+                    throw new \RuntimeException('Failed to produce PDF bytes for locale: ' . $locale);
+                }
+
+                return $bytes;
+                // ---------- END: generation logic ----------
+            });
+
+            // Write the cached bytes to the requested file path
+            if (@file_put_contents($outputPath, $pdfBytes) === false) {
+                throw new \RuntimeException('Failed to write PDF to path: ' . $outputPath . ' for locale: ' . $locale);
             }
-            
-            $mpdf->WriteHTML($html);
-            $mpdf->Output($outputPath, \Mpdf\Output\Destination::FILE);
 
             if (!file_exists($outputPath)) {
                 throw new \RuntimeException('PDF file was not created at expected path: ' . $outputPath . ' for locale: ' . $locale);
             }
-            
-            error_log("Successfully generated PDF at: " . $outputPath . " for locale: " . $locale);
 
-            // Clean up temporary logo file if it was created
-            if ($tempLogoPath && file_exists($tempLogoPath)) {
-                unlink($tempLogoPath);
-                error_log("Deleted temporary logo file: " . $tempLogoPath);
-            }
+            error_log("Successfully generated (or served from cache) PDF at: " . $outputPath . " for locale: " . $locale);
         } catch (\Throwable $e) {
-            // Clean up temporary logo file if it exists
-            if (isset($tempLogoPath) && file_exists($tempLogoPath)) {
-                unlink($tempLogoPath);
-            }
             error_log("Error generating PDF for locale " . $locale . ": " . $e->getMessage());
             throw $e;
         }
@@ -1057,7 +1079,7 @@ class FinancialSupportExportService
                 foreach ($linksList ?? [] as $link) {
                     if (!empty($link['value']) && !empty($link['label'])) {
                         $mehrinfos[] = sprintf(
-                            '<a href="%s" target="_blank" class="contLinks" title="%s" target="_blank">%s</a>',
+                            '<a href="%s" target="_blank" class="contLinks liZusinf" title="%s" target="_blank">%s</a>',
                             stristr($link['value'], '://') ? $link['value'] : 'https://'.$link['value'],
                             htmlspecialchars($link['label']),
                             htmlspecialchars($link['label'])
@@ -1395,8 +1417,8 @@ class FinancialSupportExportService
                     
                     // Create filename with language suffix (e.g., 2.png, 2_fr.png, 2_it.png)
                     $filename = $locale === 'de' 
-                        ? $financialSupport->getId() . '.' . $extension
-                        : $financialSupport->getId() . '_' . $locale . '.' . $extension;
+                        ? $logoData['id'] . '.' . $extension
+                        : $logoData['id'] . '_' . $locale . '.' . $extension;
                     
                     $filePath = $logoDir . '/' . $filename;
                     file_put_contents($filePath, $logoData['data']);
@@ -1406,8 +1428,8 @@ class FinancialSupportExportService
                         $convertedPath = $this->convertSvgToPng($filePath, $logoData['id'], $locale);
                         if ($convertedPath) {
                             $pngFilename = $locale === 'de' 
-                                ? $financialSupport->getId() . '.png'
-                                : $financialSupport->getId() . '_' . $locale . '.png';
+                                ? $logoData['id'] . '.png'
+                                : $logoData['id'] . '_' . $locale . '.png';
                             $pngPath = $logoDir . '/' . $pngFilename;
                             copy($convertedPath, $pngPath);
                             unlink($convertedPath);

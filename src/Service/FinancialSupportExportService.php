@@ -630,11 +630,11 @@ class FinancialSupportExportService
             }
             
             // Add language suffix to the filename
-            $filename = $financialSupport->getId();
+            $basename = (string) $logoData['id'];
             if ($locale !== 'de') {
-                $filename .= '_' . $locale;
+                $basename .= '_' . $locale;
             }
-            $filename .= '.' . $extension;
+            $filename = $basename . '.' . $extension;
             
             $logoPath = $logoDir . '/' . $filename;
             
@@ -908,9 +908,9 @@ class FinancialSupportExportService
                 } else {
                     error_log("No logo data available for financial support ID: " . $financialSupport->getId() . " with locale: " . $locale);
                 }
-                
-                // Determine if logo file actually exists on disk regardless of what writeLogoToDisk returned
-                $expectedLogoFilename = $financialSupport->getId();
+
+                // Determine expected filename using FILE id to match writeLogoToDisk()/getLogoFilename()
+                $expectedLogoFilename = isset($logoData['id']) ? (string) $logoData['id'] : (string) $financialSupport->getId();
                 if ($locale !== 'de') {
                     $expectedLogoFilename .= '_' . $locale;
                 }

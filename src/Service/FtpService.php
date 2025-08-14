@@ -10,17 +10,11 @@ class FtpService
     private LoggerInterface $logger;
     private array $configs;
 
-    /** cache of remote dirs confirmed/created this run */
-    private array $dirCache = [];
-
-    /** per-run staging roots: ['data' => '/.../data_new_<token>', ...] */
-    private array $sessionNewRoots = [];
-
     public function __construct(ParameterBagInterface $params, LoggerInterface $logger)
     {
         $this->logger = $logger;
         $this->configs = [
-            'staging'    => $this->parseFtpUrl($params->get('ftp_deployment_staging')),
+            'staging' => $this->parseFtpUrl($params->get('ftp_deployment_staging')),
             'production' => $this->parseFtpUrl($params->get('ftp_deployment_production')),
         ];
     }
@@ -34,14 +28,14 @@ class FtpService
         }
 
         return [
-            'scheme'    => strtolower($parts['scheme'] ?? 'ftp'),
-            'host'      => $parts['host'],
-            'port'      => $parts['port'] ?? 21,
-            'username'  => urldecode($parts['user']),
-            'password'  => urldecode($parts['pass']),
+            'scheme' => strtolower($parts['scheme'] ?? 'ftp'),
+            'host' => $parts['host'],
+            'port' => $parts['port'] ?? 21,
+            'username' => urldecode($parts['user']),
+            'password' => urldecode($parts['pass']),
             'base_path' => rtrim($parts['path'] ?? '', '/'),
-            'timeout'   => 30,
-            'passive'   => true,
+            'timeout' => 30,
+            'passive' => true,
         ];
     }
 
@@ -53,186 +47,90 @@ class FtpService
         $ftp = $this->connect($cfg);
         if (!$ftp) return ['success' => false, 'error' => 'FTP connection failed'];
 
-        try {
-            // 0) Prepare unique per-run staging roots (no slow recursive delete)
-            $this->prepareRunStagingRoots($ftp, $cfg['base_path']);
+        $failed = [];
+        foreach ($files as $file) {
+            $remote = $this->mapToNew($cfg['base_path'], $file['remote']);
+            $local = rtrim($localBasePath, '/') . '/' . $file['local'];
 
-            // 1) Ensure all parent dirs once (shallow -> deep)
-            $parentDirs = [];
-            foreach ($files as $file) {
-                $remote = $this->mapToNew($cfg['base_path'], $file['remote']);
-                $parentDirs[] = dirname($remote);
-            }
-            if (!$this->ensureDirectoriesOnce($ftp, $parentDirs)) {
-                $this->deleteThisRunStaging($ftp);
-                return ['success' => false, 'error' => 'Failed to create remote directories'];
+            if (!is_file($local)) {
+                $failed[] = $file + ['error' => 'Local file missing'];
+                continue;
             }
 
-            // 2) Upload
-            $failed = [];
-            foreach ($files as $file) {
-                $remote = $this->mapToNew($cfg['base_path'], $file['remote']);
-                $local  = rtrim($localBasePath, '/') . '/' . $file['local'];
-
-                if (!is_file($local)) {
-                    $failed[] = $file + ['error' => 'Local file missing'];
-                    continue;
-                }
-                if (!@ftp_put($ftp, $remote, $local, FTP_BINARY)) {
-                    $failed[] = $file + ['error' => 'Upload failed'];
-                }
+            if (!$this->ensureDirectoryExists($ftp, dirname($remote))) {
+                $failed[] = $file + ['error' => 'Remote dir failed'];
+                continue;
             }
 
-            if ($failed) {
-                // leave live site untouched; remove only this run's staging roots
-                $this->deleteThisRunStaging($ftp);
-                return ['success' => false, 'failed_files' => $failed];
+            if (!ftp_put($ftp, $remote, $local, FTP_BINARY)) {
+                $failed[] = $file + ['error' => 'Upload failed'];
             }
-
-            // 3) Atomic switchover (keeps exactly one _old backup)
-            if (!$this->switchover($ftp, $cfg['base_path'])) {
-                $this->deleteThisRunStaging($ftp);
-                return ['success' => false, 'error' => 'Switchover failed'];
-            }
-
-            return ['success' => true];
-        } finally {
-            @ftp_close($ftp);
-            $this->dirCache = [];
-            $this->sessionNewRoots = [];
         }
+
+        if ($failed) {
+            $this->cleanup($ftp, $cfg['base_path'], '_new');
+            ftp_close($ftp);
+            return ['success' => false, 'failed_files' => $failed];
+        }
+
+        $this->cleanup($ftp, $cfg['base_path'], '_old');
+        $this->switchover($ftp, $cfg['base_path']);
+        ftp_close($ftp);
+
+        return ['success' => true];
     }
 
     private function connect(array $cfg)
     {
-        $fn   = $cfg['scheme'] === 'ftps' ? 'ftp_ssl_connect' : 'ftp_connect';
+        $fn = $cfg['scheme'] === 'ftps' ? 'ftp_ssl_connect' : 'ftp_connect';
         $conn = @$fn($cfg['host'], $cfg['port'], $cfg['timeout']);
-        if (!$conn) return false;
 
-        if (!@ftp_login($conn, $cfg['username'], $cfg['password'])) return false;
+        if (!$conn || !@ftp_login($conn, $cfg['username'], $cfg['password'])) return false;
 
-        @ftp_set_option($conn, FTP_TIMEOUT_SEC, (int)$cfg['timeout']);
-        if (defined('FTP_AUTOSEEK'))         @ftp_set_option($conn, FTP_AUTOSEEK, true);
-        if (defined('FTP_USEPASVADDRESS'))   @ftp_set_option($conn, FTP_USEPASVADDRESS, false);
-
-        @ftp_pasv($conn, (bool)$cfg['passive']);
+        ftp_pasv($conn, $cfg['passive']);
         return $conn;
     }
 
-    private function normalizePath(string $path): string
-    {
-        $path = preg_replace('#/+#', '/', $path);
-        return '/' . ltrim($path, '/');
-    }
-
-    /**
-     * Create unique staging roots for this run: data_new_<token>, logos_new_<token>, pdfs_new_<token>
-     * (Also ensures /base_path/data etc. exist.)
-     */
-    private function prepareRunStagingRoots($ftp, string $base): void
-    {
-        $token = gmdate('YmdHis') . '_' . substr(bin2hex($this->randBytes()), 0, 6);
-
-        foreach (['data', 'logos', 'pdfs'] as $folder) {
-            $curr = rtrim($base, '/') . '/' . $folder;
-            $new  = $curr . '_new_' . $token;
-
-            $this->ensureDirectoryExistsCached($ftp, $curr);
-            $this->ensureDirectoryExistsCached($ftp, $new);
-
-            $this->sessionNewRoots[$folder] = $this->normalizePath($new);
-        }
-    }
-
-    private function randBytes(): string
-    {
-        try { return random_bytes(8); } catch (\Throwable $e) { return uniqid('', true); }
-    }
-
-    /**
-     * Map a "remote" like "logos/2.png" to this run's staging root, e.g.
-     *   /base/logos_new_<token>/2.png
-     */
     private function mapToNew(string $base, string $path): string
     {
-        $path  = ltrim($path, '/');
-        [$top, $rest] = array_pad(explode('/', $path, 2), 2, null);
-
-        if (!isset($this->sessionNewRoots[$top])) {
-            // Fallback to classic *_new if something unexpected shows up
-            $fallback = rtrim($base, '/') . '/' . $top . '_new';
-            $root     = $this->normalizePath($fallback);
-        } else {
-            $root = $this->sessionNewRoots[$top];
-        }
-
-        return rtrim($root, '/') . '/' . ($rest ?? '');
+        $parts = explode('/', ltrim($path, '/'), 2);
+        $folder = $parts[0] . '_new';
+        return rtrim($base, '/') . '/' . $folder . '/' . ($parts[1] ?? '');
     }
 
-    /** Create many directories once, shallow → deep, with caching */
-    private function ensureDirectoriesOnce($ftp, array $paths): bool
+    private function ensureDirectoryExists($ftp, string $path): bool
     {
-        $uniq = [];
-        foreach ($paths as $p) $uniq[$this->normalizePath($p)] = true;
+        $segments = explode('/', trim($path, '/'));
+        $accum = '';
 
-        $list = array_keys($uniq);
-        usort($list, fn($a, $b) => substr_count($a, '/') <=> substr_count($b, '/'));
-
-        foreach ($list as $dir) {
-            if (!$this->ensureDirectoryExistsCached($ftp, $dir)) return false;
+        foreach ($segments as $seg) {
+            $accum .= '/' . $seg;
+            if (@ftp_chdir($ftp, $accum)) continue;
+            if (!@ftp_mkdir($ftp, $accum) && !@ftp_chdir($ftp, $accum)) {
+                $this->logger->error("mkdir failed: {$accum}");
+                return false;
+            }
         }
+
         return true;
     }
 
-    /** fast-ish mkdir chain with cache; avoids repeated chdir */
-    private function ensureDirectoryExistsCached($ftp, string $path): bool
+    private function cleanup($ftp, string $base, string $suffix): void
     {
-        $path = $this->normalizePath($path);
-        if (isset($this->dirCache[$path])) return true;
-
-        $origin = @ftp_pwd($ftp) ?: '/';
-        $acc    = '';
-        foreach (explode('/', trim($path, '/')) as $seg) {
-            if ($seg === '') continue;
-            $acc .= '/' . $seg;
-            if (isset($this->dirCache[$acc])) continue;
-
-            if (@ftp_mkdir($ftp, $acc) !== false) {
-                $this->dirCache[$acc] = true;
-                continue;
-            }
-            if (@ftp_chdir($ftp, $acc)) {
-                $this->dirCache[$acc] = true;
-                @ftp_chdir($ftp, $origin);
-                continue;
-            }
-
-            $this->logger->error("mkdir/chdir failed: {$acc}");
-            return false;
-        }
-        return true;
-    }
-
-    /** Delete just this run’s staging roots (used on failure) */
-    private function deleteThisRunStaging($ftp): void
-    {
-        foreach ($this->sessionNewRoots as $root) {
-            $this->deleteRecursive($ftp, $root);
+        foreach (['data', 'logos', 'pdfs'] as $dir) {
+            $this->deleteRecursive($ftp, rtrim($base, '/') . '/' . $dir . $suffix);
         }
     }
 
     private function deleteRecursive($ftp, string $path): void
     {
-        $path  = $this->normalizePath($path);
         $items = @ftp_nlist($ftp, $path);
-        if ($items === false) { @ftp_rmdir($ftp, $path); return; }
+        if ($items === false) return;
 
         foreach ($items as $item) {
-            $base = basename($item);
-            if ($base === '.' || $base === '..') continue;
+            if (in_array(basename($item), ['.', '..'])) continue;
 
             if (@ftp_chdir($ftp, $item)) {
-                @ftp_chdir($ftp, '/');
                 $this->deleteRecursive($ftp, $item);
                 @ftp_rmdir($ftp, $item);
             } else {
@@ -243,67 +141,25 @@ class FtpService
         @ftp_rmdir($ftp, $path);
     }
 
-    /**
-     * Atomic switchover:
-     * Keep one backup (*_old). Promote only this run’s staging roots.
-     */
-    private function switchover($ftp, string $base): bool
+    private function switchover($ftp, string $base): void
     {
-        $ok = true;
-
         foreach (['data', 'logos', 'pdfs'] as $folder) {
             $curr = rtrim($base, '/') . '/' . $folder;
-            $old  = $curr . '_old';
+            $old = $curr . '_old';
+            $new = $curr . '_new';
 
-            $new = $this->sessionNewRoots[$folder] ?? null;
-            if (!$new) continue; // nothing staged for this folder
-
-            $curr = $this->normalizePath($curr);
-            $old  = $this->normalizePath($old);
-            $new  = $this->normalizePath($new);
-
-            $currExists = $this->dirExists($ftp, $curr);
-            $oldExists  = $this->dirExists($ftp, $old);
-            $newExists  = $this->dirExists($ftp, $new);
-
-            if (!$newExists) continue;
-
-            $movedCurrToOld = false;
-
-            if ($currExists && $oldExists) {
-                $this->deleteRecursive($ftp, $old);
-            }
-
-            if ($currExists) {
-                if (!@ftp_rename($ftp, $curr, $old)) {
-                    $this->logger->error("Switchover: rename {$curr} -> {$old} failed");
-                    $ok = false;
-                    continue;
-                }
-                $movedCurrToOld = true;
-            }
-
-            if (!@ftp_rename($ftp, $new, $curr)) {
-                $this->logger->error("Switchover: rename {$new} -> {$curr} failed");
-                $ok = false;
-
-                if ($movedCurrToOld) {
-                    if (!@ftp_rename($ftp, $old, $curr)) {
-                        $this->logger->error("Switchover: rollback {$old} -> {$curr} failed");
-                    }
-                }
+            if ($this->dirExists($ftp, $new)) {
+                if ($this->dirExists($ftp, $curr)) @ftp_rename($ftp, $curr, $old);
+                @ftp_rename($ftp, $new, $curr);
             }
         }
-
-        return $ok;
     }
 
     private function dirExists($ftp, string $path): bool
     {
-        $path   = $this->normalizePath($path);
         $origin = @ftp_pwd($ftp);
         if (@ftp_chdir($ftp, $path)) {
-            @ftp_chdir($ftp, $origin ?: '/');
+            @ftp_chdir($ftp, $origin);
             return true;
         }
         return false;

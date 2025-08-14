@@ -39,6 +39,35 @@ class FtpService
         ];
     }
 
+    private function normalizePath(string $path): string
+    {
+        if ($path === '') return '';
+
+        // unify separators and collapse repeats
+        $path = str_replace('\\', '/', $path);
+        $path = preg_replace('#/+#', '/', $path);
+
+        // remember if it was absolute
+        $absolute = ($path[0] ?? '') === '/';
+
+        // split and resolve segments
+        $segments = explode('/', $path);
+        $stack = [];
+        foreach ($segments as $seg) {
+            if ($seg === '' || $seg === '.') {
+                continue;
+            }
+            if ($seg === '..') {
+                array_pop($stack);
+                continue;
+            }
+            $stack[] = $seg;
+        }
+
+        $normalized = implode('/', $stack);
+        return $absolute ? '/' . $normalized : $normalized;
+    }
+
     public function uploadFiles(string $localBasePath, array $files, string $environment): array
     {
         $cfg = $this->configs[$environment] ?? null;

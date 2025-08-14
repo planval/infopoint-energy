@@ -118,27 +118,109 @@ class FtpService
     private function cleanup($ftp, string $base, string $suffix): void
     {
         foreach (['data', 'logos', 'pdfs'] as $dir) {
-            $this->deleteRecursive($ftp, rtrim($base, '/') . '/' . $dir . $suffix);
+            $this->deleteTree($ftp, rtrim($base, '/') . '/' . $dir . $suffix);
         }
     }
 
-    private function deleteRecursive($ftp, string $path): void
+    private function deleteTree($ftp, string $path): void
     {
-        $items = @ftp_nlist($ftp, $path);
+        $path = $this->normalizePath($path);
+
+        // 1) Try fast, server-side recursive delete (vendor-specific). If it works, we're done.
+        if ($this->tryServerRecursiveDelete($ftp, $path)) {
+            return;
+        }
+
+        // 2) Typed listing path (no chdir round-trips)
+        if (function_exists('ftp_mlsd')) {
+            $this->deleteRecursiveMlsd($ftp, $path);
+            @ftp_rmdir($ftp, $path);
+            return;
+        }
+
+        // 3) Fallback: NLST + chdir probing (last resort)
+        $this->deleteRecursiveNlist($ftp, $path);
+        @ftp_rmdir($ftp, $path);
+    }
+
+    /** Attempt vendor recursive delete. Returns true on success, false on unknown/unsupported. */
+    private function tryServerRecursiveDelete($ftp, string $path): bool
+    {
+        // Common variants seen in the wild (Pure-FTPd, ProFTPD, some IIS, etc.)
+        $candidates = [
+            "SITE RMDIR -R %s",
+            "SITE RMDIR %s -R",
+            "SITE RMDIR %s",
+            "SITE DELE -R %s",
+            "RMDIR -R %s",
+            "XRMD %s", // some servers alias this
+        ];
+
+        foreach ($candidates as $fmt) {
+            $cmd = sprintf($fmt, $path);
+            $resp = @ftp_raw($ftp, $cmd);
+            if ($this->is2xx($resp)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function is2xx(?array $resp): bool
+    {
+        if (!$resp) return false;
+        foreach ($resp as $line) {
+            $code = (int)substr(trim($line), 0, 3);
+            if ($code >= 200 && $code < 300) return true;
+        }
+        return false;
+    }
+
+    private function deleteRecursiveMlsd($ftp, string $dir): void
+    {
+        $dir = $this->normalizePath($dir);
+        // Ask for typed MLSD entries (helps some servers)
+        @ftp_raw($ftp, 'OPTS MLST type;size;modify;');
+        $entries = @ftp_mlsd($ftp, $dir);
+        if ($entries === false) return;
+
+        foreach ($entries as $e) {
+            $name = $e['name'] ?? '';
+            if ($name === '.' || $name === '..') continue;
+
+            $full = $dir . '/' . $name;
+            $type = strtolower($e['type'] ?? '');
+
+            if ($type === 'dir') {
+                $this->deleteRecursiveMlsd($ftp, $full);
+                @ftp_rmdir($ftp, $full);
+            } else {
+                @ftp_delete($ftp, $full);
+            }
+        }
+    }
+
+    private function deleteRecursiveNlist($ftp, string $dir): void
+    {
+        $dir = $this->normalizePath($dir);
+        $items = @ftp_nlist($ftp, $dir);
         if ($items === false) return;
 
         foreach ($items as $item) {
-            if (in_array(basename($item), ['.', '..'])) continue;
+            $base = basename($item);
+            if ($base === '.' || $base === '..') continue;
 
-            if (@ftp_chdir($ftp, $item)) {
-                $this->deleteRecursive($ftp, $item);
-                @ftp_rmdir($ftp, $item);
+            $full = $dir . '/' . $base;
+
+            // Probe directory with one chdir; always use absolute path and reset back
+            if (@ftp_chdir($ftp, $full)) {
+                @ftp_chdir($ftp, '/');
+                $this->deleteRecursiveNlist($ftp, $full);
+                @ftp_rmdir($ftp, $full);
             } else {
-                @ftp_delete($ftp, $item);
+                @ftp_delete($ftp, $full);
             }
         }
-
-        @ftp_rmdir($ftp, $path);
     }
 
     private function switchover($ftp, string $base): void

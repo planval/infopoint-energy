@@ -1193,13 +1193,15 @@ class FinancialSupportExportService
 
             $contactParts = [];
             if (!empty($contact['email'])) {
-                $contactParts[] = htmlspecialchars($contact['email']);
+                $contactParts[] = '<a href="mailto:'.$contact['email'].'">'.htmlspecialchars($contact['email']).'</a>';
             }
             if (!empty($contact['phone'])) {
                 $contactParts[] = htmlspecialchars($contact['phone']);
             }
             if (!empty($contact['web'])) {
-                $contactParts[] = htmlspecialchars($contact['web']);
+                $url = stristr($contact['web'], '://') ? $contact['web'] : 'https://'.$contact['web'];
+                $label = stristr($contact['web'], '://') ? explode('://', $contact['web'], 2)[1] : $contact['web'];
+                $contactParts[] = '<a href="'.$url.'" target="_blank">'.htmlspecialchars($label).'</a>';
             }
             
             if (!empty($contactParts)) {
@@ -1619,10 +1621,15 @@ class FinancialSupportExportService
             
             // Contact details
             if (!empty($contact['email'])) {
-                $contactParts[] = $contact['email'];
+                $contactParts[] = '<a href="mailto:'.$contact['email'].'">'.htmlspecialchars($contact['email']).'</a>';
             }
             if (!empty($contact['phone'])) {
                 $contactParts[] = $contact['phone'];
+            }
+            if (!empty($contact['web'])) {
+                $url = stristr($contact['web'], '://') ? $contact['web'] : 'https://'.$contact['web'];
+                $label = stristr($contact['web'], '://') ? explode('://', $contact['web'], 2)[1] : $contact['web'];
+                $contactParts[] = '<a href="'.$url.'" target="_blank">'.htmlspecialchars($label).'</a>';
             }
             
             if (!empty($contactParts)) {

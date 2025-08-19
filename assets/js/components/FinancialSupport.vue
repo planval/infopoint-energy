@@ -368,7 +368,7 @@
                 <div class="row">
                     <div class="col-md-3">
                         <label for="startDate">Laufzeit (Start)</label>
-                        <date-picker mode="date" :is24hr="true" v-model="financialSupport.startDate" @update:modelValue="!financialSupport.endDate ? financialSupport.endDate = financialSupport.startDate : null" :locale="'de'">
+                        <date-picker mode="date" :is24hr="true" v-model="financialSupport.startDate" :locale="'de'">
                             <template v-slot="{ inputValue, inputEvents }">
                                 <input type="text" class="form-control"
                                        :value="inputValue"
@@ -733,7 +733,6 @@ export default {
                             contact.firstName = '';
                             contact.lastName = '';
                             contact.role = '';
-                            contact.department = '';
                         }
                     });
                 }

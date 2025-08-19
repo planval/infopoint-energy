@@ -1754,61 +1754,115 @@ class FinancialSupportExportService
      */
     private function getStatesData(FinancialSupport $financialSupport, string $locale): array
     {
-        return array_map(function($state) use ($locale) {
+        $entities = $financialSupport->getStates()->toArray();
+
+        usort($entities, function($a, $b) {
+            $posA = $a->getPosition() ?? PHP_INT_MAX;
+            $posB = $b->getPosition() ?? PHP_INT_MAX;
+
+            return $posA <=> $posB ?: ($a->getId() <=> $b->getId());
+        });
+
+        return array_map(function($entity) use ($locale) {
             return [
-                'id' => $state->getId(),
-                'name' => PvTrans::translate($state, 'name', $locale)
+                'id'   => $entity->getId(),
+                'name' => PvTrans::translate($entity, 'name', $locale),
             ];
-        }, $financialSupport->getStates()->toArray());
+        }, $entities);
     }
 
     private function getTopicsData(FinancialSupport $financialSupport, string $locale): array
     {
-        return array_map(function($topic) use ($locale) {
+        $entities = $financialSupport->getTopics()->toArray();
+
+        usort($entities, function($a, $b) {
+            $posA = $a->getPosition() ?? PHP_INT_MAX;
+            $posB = $b->getPosition() ?? PHP_INT_MAX;
+
+            return $posA <=> $posB ?: ($a->getId() <=> $b->getId());
+        });
+
+        return array_map(function($entity) use ($locale) {
             return [
-                'id' => $topic->getId(),
-                'name' => PvTrans::translate($topic, 'name', $locale)
+                'id'   => $entity->getId(),
+                'name' => PvTrans::translate($entity, 'name', $locale),
             ];
-        }, $financialSupport->getTopics()->toArray());
+        }, $entities);
     }
 
     private function getInstrumentsData(FinancialSupport $financialSupport, string $locale): array
     {
-        return array_map(function($instrument) use ($locale) {
+        $entities = $financialSupport->getInstruments()->toArray();
+
+        usort($entities, function($a, $b) {
+            $posA = $a->getPosition() ?? PHP_INT_MAX;
+            $posB = $b->getPosition() ?? PHP_INT_MAX;
+
+            return $posA <=> $posB ?: ($a->getId() <=> $b->getId());
+        });
+
+        return array_map(function($entity) use ($locale) {
             return [
-                'id' => $instrument->getId(),
-                'name' => PvTrans::translate($instrument, 'name', $locale)
+                'id'   => $entity->getId(),
+                'name' => PvTrans::translate($entity, 'name', $locale),
             ];
-        }, $financialSupport->getInstruments()->toArray());
+        }, $entities);
     }
 
     private function getBeneficiariesData(FinancialSupport $financialSupport, string $locale): array
     {
-        return array_map(function($beneficiary) use ($locale) {
+        $entities = $financialSupport->getBeneficiaries()->toArray();
+
+        usort($entities, function($a, $b) {
+            $posA = $a->getPosition() ?? PHP_INT_MAX;
+            $posB = $b->getPosition() ?? PHP_INT_MAX;
+
+            return $posA <=> $posB ?: ($a->getId() <=> $b->getId());
+        });
+
+        return array_map(function($entity) use ($locale) {
             return [
-                'id' => $beneficiary->getId(),
-                'name' => PvTrans::translate($beneficiary, 'name', $locale)
+                'id'   => $entity->getId(),
+                'name' => PvTrans::translate($entity, 'name', $locale),
             ];
-        }, $financialSupport->getBeneficiaries()->toArray());
+        }, $entities);
     }
 
     private function getProjectTypesData(FinancialSupport $financialSupport, string $locale): array
     {
-        return array_map(function($projectType) use ($locale) {
+        $entities = $financialSupport->getProjectTypes()->toArray();
+
+        usort($entities, function($a, $b) {
+            $posA = $a->getPosition() ?? PHP_INT_MAX;
+            $posB = $b->getPosition() ?? PHP_INT_MAX;
+
+            return $posA <=> $posB ?: ($a->getId() <=> $b->getId());
+        });
+
+        return array_map(function($entity) use ($locale) {
             return [
-                'id' => $projectType->getId(),
-                'name' => PvTrans::translate($projectType, 'name', $locale)
+                'id'   => $entity->getId(),
+                'name' => PvTrans::translate($entity, 'name', $locale),
             ];
-        }, $financialSupport->getProjectTypes()->toArray());
+        }, $entities);
     }
 
     private function getGeographicRegionsData(FinancialSupport $financialSupport, string $locale): array
     {
-        return array_map(function($region) use ($locale) {
+        $entities = $financialSupport->getGeographicRegions()->toArray();
+
+        usort($entities, function($a, $b) {
+            $posA = $a->getPosition() ?? PHP_INT_MAX;
+            $posB = $b->getPosition() ?? PHP_INT_MAX;
+
+            return $posA <=> $posB ?: ($a->getId() <=> $b->getId());
+        });
+
+        return array_map(function($entity) use ($locale) {
             return [
-                'id' => $region->getId(),
-                'name' => PvTrans::translate($region, 'name', $locale)
+                'id'   => $entity->getId(),
+                'name' => PvTrans::translate($entity, 'name', $locale),
             ];
-        }, $financialSupport->getGeographicRegions()->toArray());
+        }, $entities);
     }
 } 

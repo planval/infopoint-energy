@@ -6,14 +6,14 @@
         <style>
             body {
                 font-family: "Noto Sans", Noto Sans, Arial, sans-serif;
-                font-size: 12px;
+                font-size: 10px;
                 font-weight: normal;
                 color: #141C22;
             }
 
             h1 {
                 font-size: 32px;
-                color: #D8232A;
+                color: #FF0000;
             }
 
             h2 {
@@ -36,18 +36,19 @@
             }
 
             a {
-                color: #D8232A;
+                color: #006699;
                 text-decoration: none;
             }
 
             ul {
                 padding: 0;
-                margin-left: 22px;
+                margin-left: 16px;
+                list-style: square;
             }
 
             li,
             .list-item {
-                margin-bottom: 10px;
+                margin-bottom: 0;
             }
         </style>
 
@@ -95,12 +96,6 @@
                     {{ exclusionCriteria|raw }}
                 {% endif %}
 
-                {% set financingRatio = pv_trans(financialSupport, 'financingRatio', app.request.locale) %}
-                {% if financingRatio|trim is not empty %}
-                    <h2>{{ translations['Finanzierung'] is defined ? translations['Finanzierung'] : ('Finanzierung' | trans) }}</h2>
-                    {{ financingRatio|raw }}
-                {% endif %}
-
                 {% set application = pv_trans(financialSupport, 'application', app.request.locale) %}
                 {% if application|trim is not empty %}
                     <h2>{{ translations['Beantragung'] is defined ? translations['Beantragung'] : ('Beantragung' |trans) }}</h2>
@@ -111,6 +106,12 @@
                 {% if applicationTips|trim is not empty %}
                     <h2>{{ translations['Tipps zur Beantragung'] is defined ? translations['Tipps zur Beantragung'] : ('Tipps zur Beantragung' |trans) }}</h2>
                     {{ applicationTips|raw }}
+                {% endif %}
+
+                {% set financingRatio = pv_trans(financialSupport, 'financingRatio', app.request.locale) %}
+                {% if financingRatio|trim is not empty %}
+                    <h2>{{ translations['Finanzierung'] is defined ? translations['Finanzierung'] : ('Finanzierung' | trans) }}</h2>
+                    {{ financingRatio|raw }}
                 {% endif %}
 
                 {% set contacts = pv_trans(financialSupport, 'contacts', app.request.locale)|default([]) %}
@@ -166,7 +167,7 @@
                             {% if contact.email|default or contact.phone|default or contact.website|default %}
                                 <p style="margin: 5px 0 0 0;">
                                     {% if contact.email|default %}
-                                        <a href="mailto:{{ contact.email }}" style="color: #D8232A; text-decoration: none;">{{ contact.email }}</a><br>
+                                        <a href="mailto:{{ contact.email }}" style="color: #FF0000; text-decoration: none;">{{ contact.email }}</a><br>
                                     {% endif %}
                                     {% if contact.phone|default %}
                                         {{ contact.phone }}<br>
@@ -254,7 +255,13 @@
                         {% if other_instrument_value is not null %}
                             {% set instruments = instruments|merge([other_instrument_value]) %}
                         {% endif %}
-                        {% for instrument in instruments %}
+                        {% set sortedInstruments = instruments|sort((a, b) => (
+                            a.position is null and b.position is null ? 0 :
+                            a.position is null ? 1 :
+                            b.position is null ? -1 :
+                            a.position <=> b.position
+                        )) %}
+                        {% for instrument in sortedInstruments %}
                             <li class="list-item">{{ instrument }}</li>
                         {% endfor %}
                     </ul>
@@ -281,7 +288,13 @@
                         {% if other_beneficiary_value is not null %}
                             {% set beneficiaries = beneficiaries|merge([other_beneficiary_value]) %}
                         {% endif %}
-                        {% for beneficiary in beneficiaries %}
+                        {% set sortedBeneficiaries = beneficiaries|sort((a, b) => (
+                            a.position is null and b.position is null ? 0 :
+                            a.position is null ? 1 :
+                            b.position is null ? -1 :
+                            a.position <=> b.position
+                        )) %}
+                        {% for beneficiary in sortedBeneficiaries %}
                             <li class="list-item">{{ beneficiary }}</li>
                         {% endfor %}
                     </ul>
@@ -290,7 +303,13 @@
                 {% if financialSupport.topics is not empty %}
                     <h2>{{ translations['Themenschwerpunkt'] is defined ? translations['Themenschwerpunkt'] : ('Themenschwerpunkt' |trans) }}</h2>
                     <ul class="list">
-                        {% for topic in financialSupport.topics %}
+                        {% set sortedTopics = financialSupport.topics|sort((a, b) => (
+                            a.position is null and b.position is null ? 0 :
+                            a.position is null ? 1 :
+                            b.position is null ? -1 :
+                            a.position <=> b.position
+                        )) %}
+                        {% for topic in sortedTopics %}
                             <li class="list-item">{{ pv_trans(topic, 'name', app.request.locale) }}</li>
                         {% endfor %}
                     </ul>
@@ -299,7 +318,13 @@
                 {% if financialSupport.projectTypes is not empty %}
                     <h2>{{ translations['Innovationsphasen'] is defined ? translations['Innovationsphasen'] : ('Innovationsphasen' |trans) }}</h2>
                     <ul class="list">
-                        {% for projectType in financialSupport.projectTypes %}
+                        {% set sortedProjectTypes = financialSupport.projectTypes|sort((a, b) => (
+                            a.position is null and b.position is null ? 0 :
+                            a.position is null ? 1 :
+                            b.position is null ? -1 :
+                            a.position <=> b.position
+                        )) %}
+                        {% for projectType in sortedProjectTypes %}
                             <li class="list-item">{{ pv_trans(projectType, 'name', app.request.locale) }}</li>
                         {% endfor %}
                     </ul>
@@ -308,7 +333,13 @@
                 {% if financialSupport.geographicRegions is not empty %}
                     <h2>{{ translations['Fördergebiet'] is defined ? translations['Fördergebiet'] : ('Fördergebiet' |trans) }}</h2>
                     <ul class="list">
-                        {% for geographicRegion in financialSupport.geographicRegions %}
+                        {% set sortedGeographicRegions = financialSupport.geographicRegions|sort((a, b) => (
+                            a.position is null and b.position is null ? 0 :
+                            a.position is null ? 1 :
+                            b.position is null ? -1 :
+                            a.position <=> b.position
+                        )) %}
+                        {% for geographicRegion in sortedGeographicRegions %}
                             <li class="list-item">{{ pv_trans(geographicRegion, 'name', app.request.locale) }}</li>
                         {% endfor %}
                     </ul>

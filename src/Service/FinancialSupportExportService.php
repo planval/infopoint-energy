@@ -1021,7 +1021,7 @@ class FinancialSupportExportService
                     if (!empty($link['value']) && !empty($link['label'])) {
                         $mehrinfos[] = sprintf(
                             '<a href="%s" target="_blank" class="contLinks liZusinf" title="%s" target="_blank">%s</a>',
-                            stristr($link['value'], '://') ? $link['value'] : 'https://'.$link['value'],
+                            'https://'.$this->normalizeUrl($link['value']),
                             htmlspecialchars($link['label']),
                             htmlspecialchars($link['label'])
                         );
@@ -1139,6 +1139,10 @@ class FinancialSupportExportService
                 $parts[] = sprintf('<b>%s</b>', htmlspecialchars($contact['name']));
             }
 
+            if (!empty($contact['department'])) {
+                $parts[] = sprintf('<b>%s</b>', htmlspecialchars($contact['department']));
+            }
+
             $addressParts = [];
             
             // Handle person vs institution display
@@ -1169,9 +1173,6 @@ class FinancialSupportExportService
             if (!empty($contact['role'])) {
                 $roleAndDept[] = $contact['role'];
             }
-            if (!empty($contact['department'])) {
-                $roleAndDept[] = $contact['department'];
-            }
             if (!empty($roleAndDept)) {
                 $addressParts[] = htmlspecialchars(implode(', ', $roleAndDept));
             }
@@ -1198,10 +1199,9 @@ class FinancialSupportExportService
             if (!empty($contact['phone'])) {
                 $contactParts[] = htmlspecialchars($contact['phone']);
             }
-            if (!empty($contact['web'])) {
-                $url = stristr($contact['web'], '://') ? $contact['web'] : 'https://'.$contact['web'];
-                $label = stristr($contact['web'], '://') ? explode('://', $contact['web'], 2)[1] : $contact['web'];
-                $contactParts[] = '<a href="'.$url.'" target="_blank">'.htmlspecialchars($label).'</a>';
+            if (!empty($contact['website'])) {
+                $url = $this->normalizeUrl($contact['website']);
+                $contactParts[] = '<a href="https://'.$url.'" target="_blank">'.htmlspecialchars($url).'</a>';
             }
             
             if (!empty($contactParts)) {
@@ -1214,6 +1214,11 @@ class FinancialSupportExportService
         }
 
         return implode('<br><br>', $formattedContacts);
+    }
+
+    private function normalizeUrl(string $url): string
+    {
+        return stristr($url, '://') ? explode('://', $url, 2)[1] : $url;
     }
 
     /**
@@ -1580,6 +1585,10 @@ class FinancialSupportExportService
             if (!empty($contact['name'])) {
                 $contactParts[] = '<b>' . $contact['name'] . '</b>';
             }
+
+            if (!empty($contact['department'])) {
+                $contactParts[] = '<b>' . $contact['department'] . '</b>';
+            }
             
             // Person details for person contacts
             if (!isset($contact['type']) || $contact['type'] === 'person') {
@@ -1626,10 +1635,9 @@ class FinancialSupportExportService
             if (!empty($contact['phone'])) {
                 $contactParts[] = $contact['phone'];
             }
-            if (!empty($contact['web'])) {
-                $url = stristr($contact['web'], '://') ? $contact['web'] : 'https://'.$contact['web'];
-                $label = stristr($contact['web'], '://') ? explode('://', $contact['web'], 2)[1] : $contact['web'];
-                $contactParts[] = '<a href="'.$url.'" target="_blank">'.htmlspecialchars($label).'</a>';
+            if (!empty($contact['website'])) {
+                $url = $this->normalizeUrl($contact['website']);
+                $contactParts[] = '<a href="https://'.$url.'" target="_blank">'.htmlspecialchars($url).'</a>';
             }
             
             if (!empty($contactParts)) {
@@ -1688,7 +1696,7 @@ class FinancialSupportExportService
         
         foreach ($links as $link) {
             if (!empty($link['value']) && !empty($link['label'])) {
-                $linkStrings[] = '<a href="' . htmlspecialchars($link['value']) . '" target="_blank" class="contLinks" title="' . htmlspecialchars($link['label']) . '">' . htmlspecialchars($link['label']) . '</a>';
+                $linkStrings[] = '<a href="https://' . $this->normalizeUrl($link['value']) . '" target="_blank" class="contLinks" title="' . htmlspecialchars($link['label']) . '">' . htmlspecialchars($link['label']) . '</a>';
             }
         }
         

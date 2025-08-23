@@ -124,6 +124,10 @@
                             {% if contact.name|default %}
                                 <p style="margin: 0 0 8px 0; font-size: 14px;"><strong>{{ contact.name }}</strong></p>
                             {% endif %}
+
+                            {% if contact.department|default %}
+                                <p style="margin: 0 0 5px 0;">{{ contact.department }}</p>
+                            {% endif %}
                             
                             {% set personInfo = [] %}
                             {% if contact.type|default == 'person' %}
@@ -148,10 +152,6 @@
                                 <p style="margin: 0 0 5px 0; font-style: italic;">{{ contact.role }}</p>
                             {% endif %}
                             
-                            {% if contact.department|default %}
-                                <p style="margin: 0 0 5px 0;">{{ contact.department }}</p>
-                            {% endif %}
-                            
                             {% if contact.street|default %}
                                 <p style="margin: 0 0 3px 0;">{{ contact.street }}</p>
                             {% endif %}
@@ -167,7 +167,7 @@
                             {% if contact.email|default or contact.phone|default or contact.website|default %}
                                 <p style="margin: 5px 0 0 0;">
                                     {% if contact.email|default %}
-                                        <a href="mailto:{{ contact.email }}" style="color: #FF0000; text-decoration: none;">{{ contact.email }}</a><br>
+                                        <a href="mailto:{{ contact.email }}">{{ contact.email }}</a><br>
                                     {% endif %}
                                     {% if contact.phone|default %}
                                         {{ contact.phone }}<br>

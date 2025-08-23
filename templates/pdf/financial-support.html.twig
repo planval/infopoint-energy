@@ -173,7 +173,11 @@
                                         {{ contact.phone }}<br>
                                     {% endif %}
                                     {% if contact.website|default %}
-                                        <a href="{{ contact.website }}" target="_blank">{{ contact.website }}</a><br>
+                                        {% set url = contact.website %}
+                                        {% if not url.startswith('http') %}
+                                            {% set url = 'https://' ~ url %}
+                                        {% endif %}
+                                        <a href="{{ url }}" target="_blank">{{ contact.website }}</a><br>
                                     {% endif %}
                                 </p>
                             {% endif %}
@@ -186,9 +190,13 @@
                     <h2>{{ translations['Mehr Informationen'] is defined ? translations['Mehr Informationen'] : ('Mehr Informationen' |trans) }}</h2>
                     <div class="list">
                         {% for link in links %}
+                            {% set url = link.value %}
+                            {% if not url.startswith('http') %}
+                                {% set url = 'https://' ~ url %}
+                            {% endif %}
                             <div class="list-item">
                                 {{ link.label }}<br>
-                                <a href="{{ link.value }}" target="_blank">{{ link.value }}</a>
+                                <a href="{{ url }}" target="_blank">{{ url }}</a>
                             </div>
                         {% endfor %}
                     </div>

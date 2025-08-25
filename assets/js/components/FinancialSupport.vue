@@ -428,7 +428,7 @@
 
                 <div class="row">
                     <div class="col-md-6">
-                        <label for="zuteilung">Zuteilung</label>
+                        <label for="zuteilung">Art der Förderung</label>
                         <div class="select-wrapper">
                             <select id="zuteilung" class="form-control" v-model="financialSupport.assignment">
                                 <option value=""></option>

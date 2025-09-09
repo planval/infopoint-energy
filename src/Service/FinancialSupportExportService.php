@@ -858,29 +858,29 @@ class FinancialSupportExportService
         
         if ($assignment === 'beides') {
             if ($locale === 'de') {
-                return 'Finanzielle und Nicht-Finanzielle';
+                return 'Finanziell und Nicht-Finanziell';
             } elseif ($locale === 'fr') {
-                return 'Financière et Non-Financière';
+                return 'Financier et Non financier';
             } elseif ($locale === 'it') {
-                return 'Finanziario e Non-Finanziario';
+                return 'Finanziario e Non finanziario';
             }
         } else if ($assignment === 'Finanzielle' || $assignment === 'Finanziell') {
             // For German, return the original value without modification
             if ($locale === 'de') {
-                return 'Finanzielle';
+                return 'Finanziell';
             } else if ($locale === 'fr') {
-                return 'Financière';
+                return 'Financier';
             } elseif ($locale === 'it') {
                 return 'Finanziario';
             }
         } else if ($assignment === 'Nicht-Finanzielle' || $assignment === 'Nicht-Finanziell') {
             // For German, return the original value without modification
             if ($locale === 'de') {
-                return 'Nicht-Finanzielle';
+                return 'Nicht-Finanziell';
             } else if ($locale === 'fr') {
-                return 'Non-Financière';
+                return 'Non financier';
             } elseif ($locale === 'it') {
-                return 'Non-Finanziario';
+                return 'Non finanziario';
             }
         }
         
@@ -1040,27 +1040,27 @@ class FinancialSupportExportService
                 
                 if ($assignment === 'beides') {
                     if ($locale === 'de') {
-                        $assignment = 'Finanzielle<br>Nicht-Finanzielle';
+                        $assignment = 'Finanziell<br>Nicht-Finanziell';
                     } elseif ($locale === 'fr') {
-                        $assignment = 'Financière<br>Non-Financière';
+                        $assignment = 'Financier<br>Non financier';
                     } elseif ($locale === 'it') {
-                        $assignment = 'Finanziario<br>Non-Finanziario';
+                        $assignment = 'Finanziario<br>Non finanziario';
                     }
                 } else if ($assignment === 'Finanzielle' || $assignment === 'Finanziell') {
                     if ($locale === 'de') {
-                        $assignment = 'Finanzielle';
+                        $assignment = 'Finanziell';
                     } elseif ($locale === 'fr') {
-                        $assignment = 'Financière';
+                        $assignment = 'Financier';
                     } elseif ($locale === 'it') {
                         $assignment = 'Finanziario';
                     }
                 } else if ($assignment === 'Nicht-Finanzielle' || $assignment === 'Nicht-Finanziell') {
                     if ($locale === 'de') {
-                        $assignment = 'Nicht-Finanzielle';
+                        $assignment = 'Nicht-Finanziell';
                     } elseif ($locale === 'fr') {
-                        $assignment = 'Non-Financière';
+                        $assignment = 'Non financier';
                     } elseif ($locale === 'it') {
-                        $assignment = 'Non-Finanziario';
+                        $assignment = 'Non finanziario';
                     }
                 }
 

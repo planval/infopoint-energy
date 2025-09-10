@@ -1325,7 +1325,7 @@ class FinancialSupportExportService
      */
     private function generateJsonFiles(string $dataDir): void
     {
-        $financialSupports = $this->em->getRepository(FinancialSupport::class)->findBy(['isPublic' => true]);
+        $financialSupports = $this->em->getRepository(FinancialSupport::class)->findBy(['isPublic' => true], ['position' => 'ASC']);
         
         foreach (['de', 'fr', 'it'] as $locale) {
             $jsonData = $this->generateLocalizedJsonForFtp($financialSupports, $locale);

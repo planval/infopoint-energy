@@ -1197,7 +1197,7 @@ class FinancialSupportExportService
                 $contactParts[] = '<a href="mailto:'.$contact['email'].'">'.htmlspecialchars($contact['email']).'</a>';
             }
             if (!empty($contact['phone'])) {
-                $contactParts[] = htmlspecialchars($contact['phone']);
+                $contactParts[] = '<a href="tel:'.$contact['phone'].'">'.htmlspecialchars($contact['phone']).'</a>';
             }
             if (!empty($contact['website'])) {
                 $url = $this->normalizeUrl($contact['website']);

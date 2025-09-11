@@ -170,7 +170,7 @@
                                         <a href="mailto:{{ contact.email }}">{{ contact.email }}</a><br>
                                     {% endif %}
                                     {% if contact.phone|default %}
-                                        {{ contact.phone }}<br>
+                                        <a href="tel:{{ contact.phone }}">{{ contact.phone }}</a><br>
                                     {% endif %}
                                     {% if contact.website|default %}
                                         {% set url = contact.website|default('')|trim %}
@@ -219,21 +219,6 @@
             </div>
 
             <div style="float: right; width: 30%;">
-                {% if financialSupport.startDate or financialSupport.endDate %}
-                    <h2>{{ translations['Laufzeit'] is defined ? translations['Laufzeit'] : ('Laufzeit' |trans) }}</h2>
-                    <div class="list">
-                        {% if financialSupport.startDate %}
-                            <div class="list-item">
-                                {{ translations['Start'] is defined ? translations['Start'] : ('Start' |trans) }}: {{ financialSupport.startDate|date('d.m.Y') }}
-                            </div>
-                        {% endif %}
-                        {% if financialSupport.endDate %}
-                            <div class="list-item">
-                                {{ translations['Ende'] is defined ? translations['Ende'] : ('Ende' |trans) }}: {{ financialSupport.endDate|date('d.m.Y') }}
-                            </div>
-                        {% endif %}
-                    </div>
-                {% endif %}
 
                 {% if financialSupport.fundingProvider %}
                     <h2>{{ translations['Förderstelle'] is defined ? translations['Förderstelle'] : ('Förderstelle'|trans) }}</h2>

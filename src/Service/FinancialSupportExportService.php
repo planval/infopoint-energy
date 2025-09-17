@@ -1486,6 +1486,35 @@ class FinancialSupportExportService
             $pdfFilename = $locale === 'de' 
                 ? $financialSupport->getId() . '.pdf'
                 : $financialSupport->getId() . '_' . $locale . '.pdf';
+
+            // Handle assignment translation
+            $assignment = $financialSupport->getAssignment();
+
+            if ($assignment === 'beides') {
+                if ($locale === 'de') {
+                    $assignment = 'Finanziell<br>Nicht-Finanziell';
+                } elseif ($locale === 'fr') {
+                    $assignment = 'Financier<br>Non financier';
+                } elseif ($locale === 'it') {
+                    $assignment = 'Finanziario<br>Non finanziario';
+                }
+            } else if ($assignment === 'Finanzielle' || $assignment === 'Finanziell') {
+                if ($locale === 'de') {
+                    $assignment = 'Finanziell';
+                } elseif ($locale === 'fr') {
+                    $assignment = 'Financier';
+                } elseif ($locale === 'it') {
+                    $assignment = 'Finanziario';
+                }
+            } else if ($assignment === 'Nicht-Finanzielle' || $assignment === 'Nicht-Finanziell') {
+                if ($locale === 'de') {
+                    $assignment = 'Nicht-Finanziell';
+                } elseif ($locale === 'fr') {
+                    $assignment = 'Non financier';
+                } elseif ($locale === 'it') {
+                    $assignment = 'Non finanziario';
+                }
+            }
             
             $angebot = [
                 'id' => $financialSupport->getId(),
@@ -1511,7 +1540,7 @@ class FinancialSupportExportService
                 'termine' => $this->formatAppointmentsAsString($financialSupport, $locale),
                 'terminetxt' => '', // Empty as in original format
                 'mehrinfos' => $this->formatLinksAsString($financialSupport, $locale),
-                'zuteilung' => PvTrans::translate($financialSupport, 'assignment', $locale) ?: ''
+                'zuteilung' => $assignment,
             ];
             
             $angebote[] = $angebot;

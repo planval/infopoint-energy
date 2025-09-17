@@ -943,43 +943,29 @@ class FinancialSupportExportService
                     $this->generatePdf($financialSupport, $pdfPath, $logoData, $locale);
                 }
 
-                // Convert arrays to <br> separated strings
-                $authorities = array_map(
-                    fn($authority) => PvTrans::translate($authority, 'name', $locale),
-                    $financialSupport->getAuthorities() ? $financialSupport->getAuthorities()->toArray() : []
-                );
-                $instruments = array_map(
-                    fn($instrument) => PvTrans::translate($instrument, 'name', $locale),
-                    $financialSupport->getInstruments() ? $financialSupport->getInstruments()->toArray() : []
-                );
-                $beneficiaries = array_map(
-                    fn($beneficiary) => PvTrans::translate($beneficiary, 'name', $locale),
-                    $financialSupport->getBeneficiaries() ? $financialSupport->getBeneficiaries()->toArray() : []
+                $translationsArr = $financialSupport->getTranslations();
+                $otherOptionValues = $translationsArr[$locale]['otherOptionValues'] ?? ($locale === 'de' ? $financialSupport->getOtherOptionValues() : null);
+
+                $authorities = $this->composeListWithOther(
+                    array_map(fn($a)=>PvTrans::translate($a,'name',$locale), $financialSupport->getAuthorities()?->toArray() ?? []),
+                    $otherOptionValues,
+                    'authority',
+                    $locale
                 );
 
-                // Handle otherNames for Weitere options
-                $otherOptionValues = isset($financialSupport->getTranslations()[$locale]['otherOptionValues']) ? 
-                    $financialSupport->getTranslations()[$locale]['otherOptionValues'] : 
-                    ($locale === 'de' ? $financialSupport->getOtherOptionValues() : null);
+                $instruments = $this->composeListWithOther(
+                    array_map(fn($i)=>PvTrans::translate($i,'name',$locale), $financialSupport->getInstruments()?->toArray() ?? []),
+                    $otherOptionValues,
+                    'instrument',
+                    $locale
+                );
 
-                // "Weitere" might need to be translated for fr/it
-                $weitereText = $locale === 'de' ? 'Weitere' : 
-                               ($locale === 'fr' ? 'Autres' : 'Altri');
-
-                if ($otherOptionValues) {
-                    // Add otherOptionValues.authority if Weitere is in authorities
-                    if (in_array($weitereText, $authorities) && !empty($otherOptionValues['authority'])) {
-                        $authorities[] = $otherOptionValues['authority'];
-                    }
-                    // Add otherOptionValues.instrument if Weitere is in instruments
-                    if (in_array($weitereText, $instruments) && !empty($otherOptionValues['instrument'])) {
-                        $instruments[] = $otherOptionValues['instrument'];
-                    }
-                    // Add otherOptionValues.beneficiary if Weitere is in beneficiaries
-                    if (in_array($weitereText, $beneficiaries) && !empty($otherOptionValues['beneficiary'])) {
-                        $beneficiaries[] = $otherOptionValues['beneficiary'];
-                    }
-                }
+                $beneficiaries = $this->composeListWithOther(
+                    array_map(fn($b)=>PvTrans::translate($b,'name',$locale), $financialSupport->getBeneficiaries()?->toArray() ?? []),
+                    $otherOptionValues,
+                    'beneficiary',
+                    $locale
+                );
 
                 $topics = array_map(
                     fn($topic) => PvTrans::translate($topic, 'name', $locale),
@@ -1123,6 +1109,27 @@ class FinancialSupportExportService
                 $financialSupport->getTranslations()[$locale]['contacts'] : []);
 
         return $contacts ?? [];
+    }
+
+    private function composeListWithOther(
+        array $translatedList,
+        ?array $otherOptionValues,
+        string $key,
+        string $locale
+    ): array {
+
+        $weitereText = $locale === 'de' ? 'Weitere' : ($locale === 'fr' ? 'Autres' : 'Altri');
+
+        if (!$otherOptionValues || empty($otherOptionValues[$key])) {
+            return $translatedList;
+        }
+
+        if (in_array($weitereText, $translatedList, true)) {
+            $translatedList[] = $otherOptionValues[$key];
+        }
+
+        return $translatedList;
+
     }
 
     private function formatContacts(array $contacts): string
@@ -1487,6 +1494,23 @@ class FinancialSupportExportService
                 ? $financialSupport->getId() . '.pdf'
                 : $financialSupport->getId() . '_' . $locale . '.pdf';
 
+            $translationsArr = $financialSupport->getTranslations();
+            $otherOptionValues = $translationsArr[$locale]['otherOptionValues'] ?? ($locale === 'de' ? $financialSupport->getOtherOptionValues() : null);
+
+            $instruments = $this->composeListWithOther(
+                array_map(fn($i)=>PvTrans::translate($i,'name',$locale), $financialSupport->getInstruments()?->toArray() ?? []),
+                $otherOptionValues,
+                'instrument',
+                $locale
+            );
+
+            $beneficiaries = $this->composeListWithOther(
+                array_map(fn($b)=>PvTrans::translate($b,'name',$locale), $financialSupport->getBeneficiaries()?->toArray() ?? []),
+                $otherOptionValues,
+                'beneficiary',
+                $locale
+            );
+
             // Handle assignment translation
             $assignment = $financialSupport->getAssignment();
 
@@ -1522,8 +1546,8 @@ class FinancialSupportExportService
                 'logo' => $logoFilename ? 'logos/' . $logoFilename : '',
                 'pdf' => 'pdfs/' . $pdfFilename,
                 'foerderstelle' => PvTrans::translate($financialSupport, 'fundingProvider', $locale) ?: '',
-                'unterstuetzungsform' => $this->formatArrayAsString($this->getInstrumentsData($financialSupport, $locale)),
-                'beguenstigte' => $this->formatArrayAsString($this->getBeneficiariesData($financialSupport, $locale)),
+                'unterstuetzungsform' => implode('<br>', array_filter($instruments)),
+                'beguenstigte' => implode('<br>', array_filter($beneficiaries)),
                 'lead' => PvTrans::translate($financialSupport, 'description', $locale) ?: '',
                 'kurzbeschrieb' => PvTrans::translate($financialSupport, 'additionalInformation', $locale) ?: '',
                 'teilkrit' => PvTrans::translate($financialSupport, 'inclusionCriteria', $locale) ?: '',

@@ -946,13 +946,6 @@ class FinancialSupportExportService
                 $translationsArr = $financialSupport->getTranslations();
                 $otherOptionValues = $translationsArr[$locale]['otherOptionValues'] ?? ($locale === 'de' ? $financialSupport->getOtherOptionValues() : null);
 
-                $authorities = $this->composeListWithOther(
-                    array_map(fn($a)=>PvTrans::translate($a,'name',$locale), $financialSupport->getAuthorities()?->toArray() ?? []),
-                    $otherOptionValues,
-                    'authority',
-                    $locale
-                );
-
                 $instruments = $this->composeListWithOther(
                     array_map(fn($i)=>PvTrans::translate($i,'name',$locale), $financialSupport->getInstruments()?->toArray() ?? []),
                     $otherOptionValues,
@@ -1118,14 +1111,16 @@ class FinancialSupportExportService
         string $locale
     ): array {
 
-        $weitereText = $locale === 'de' ? 'Weitere' : ($locale === 'fr' ? 'Autres' : 'Altri');
+        $weitereText = $locale === 'fr' ? 'Autres' : ($locale === 'it' ? 'Altri' : 'Weitere');
 
-        if (!$otherOptionValues || empty($otherOptionValues[$key])) {
+        $value = isset($otherOptionValues[$key]) ? trim((string) $otherOptionValues[$key]) : '';
+        if ($value === '') {
             return $translatedList;
         }
 
-        if (in_array($weitereText, $translatedList, true)) {
-            $translatedList[] = $otherOptionValues[$key];
+        $idx = array_search($weitereText, $translatedList, true);
+        if ($idx !== false) {
+            $translatedList[$idx] = $weitereText . ': ' . $value;
         }
 
         return $translatedList;

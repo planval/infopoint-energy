@@ -1019,11 +1019,11 @@ class FinancialSupportExportService
                 
                 if ($assignment === 'beides') {
                     if ($locale === 'de') {
-                        $assignment = 'Finanziell<br>Nicht-Finanziell';
+                        $assignment = 'Finanziell<br>Nicht-Monetär';
                     } elseif ($locale === 'fr') {
-                        $assignment = 'Financier<br>Non financier';
+                        $assignment = 'Financier<br>Non monétaire';
                     } elseif ($locale === 'it') {
-                        $assignment = 'Finanziario<br>Non finanziario';
+                        $assignment = 'Finanziario<br>Non monetario';
                     }
                 } else if ($assignment === 'Finanzielle' || $assignment === 'Finanziell') {
                     if ($locale === 'de') {
@@ -1035,11 +1035,11 @@ class FinancialSupportExportService
                     }
                 } else if ($assignment === 'Nicht-Finanzielle' || $assignment === 'Nicht-Finanziell') {
                     if ($locale === 'de') {
-                        $assignment = 'Nicht-Finanziell';
+                        $assignment = 'Nicht-Monetär';
                     } elseif ($locale === 'fr') {
-                        $assignment = 'Non financier';
+                        $assignment = 'Non monétaire';
                     } elseif ($locale === 'it') {
-                        $assignment = 'Non finanziario';
+                        $assignment = 'Non monetario';
                     }
                 }
 
@@ -1120,7 +1120,17 @@ class FinancialSupportExportService
 
         $idx = array_search($weitereText, $translatedList, true);
         if ($idx !== false) {
+
+            if($key === 'instrument') {
+                $weitereText = $locale === 'fr' ? 'Autres types de soutien' : ($locale === 'it' ? 'Altra forma di sostegno' : 'Weitere Unterstützungsform');
+            }
+
+            if($key === 'beneficiary') {
+                $weitereText = $locale === 'fr' ? 'Autres bénéficiaires' : ($locale === 'it' ? 'Altri beneficiari' : 'Weitere Begünstigte');
+            }
+
             $translatedList[$idx] = $weitereText . ': ' . $value;
+
         }
 
         return $translatedList;
@@ -1511,11 +1521,11 @@ class FinancialSupportExportService
 
             if ($assignment === 'beides') {
                 if ($locale === 'de') {
-                    $assignment = 'Finanziell<br>Nicht-Finanziell';
+                    $assignment = 'Finanziell<br>Nicht-Monetär';
                 } elseif ($locale === 'fr') {
-                    $assignment = 'Financier<br>Non financier';
+                    $assignment = 'Financier<br>Non monétaire';
                 } elseif ($locale === 'it') {
-                    $assignment = 'Finanziario<br>Non finanziario';
+                    $assignment = 'Finanziario<br>Non monetario';
                 }
             } else if ($assignment === 'Finanzielle' || $assignment === 'Finanziell') {
                 if ($locale === 'de') {
@@ -1527,11 +1537,11 @@ class FinancialSupportExportService
                 }
             } else if ($assignment === 'Nicht-Finanzielle' || $assignment === 'Nicht-Finanziell') {
                 if ($locale === 'de') {
-                    $assignment = 'Nicht-Finanziell';
+                    $assignment = 'Nicht-Monetär';
                 } elseif ($locale === 'fr') {
-                    $assignment = 'Non financier';
+                    $assignment = 'Non monétaire';
                 } elseif ($locale === 'it') {
-                    $assignment = 'Non finanziario';
+                    $assignment = 'Non monetario';
                 }
             }
             

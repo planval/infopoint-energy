@@ -104,6 +104,7 @@ class FtpService
 
         $this->cleanup($ftp, $cfg['base_path'], '_old');
         $this->switchover($ftp, $cfg['base_path']);
+        $this->cleanup($ftp, $cfg['base_path'], '_old');
         ftp_close($ftp);
 
         return ['success' => true];

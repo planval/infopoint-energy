@@ -211,7 +211,7 @@
                 {% endif %}
 
                 {% set appointments = pv_trans(financialSupport, 'appointments', app.request.locale)|default([]) %}
-                {% if appointments is not empty %}
+                {% if appointments is not empty and appointment.description|default and appointment.date|default %}
                     <h2>{{ translations['Termine'] is defined ? translations['Termine'] : ('Termine' |trans) }}</h2>
                     <div class="list">
                         {% for appointment in appointments %}

@@ -1111,7 +1111,7 @@ class FinancialSupportExportService
         string $locale
     ): array {
 
-        $weitereText = $locale === 'fr' ? 'Autres' : ($locale === 'it' ? 'Altri' : 'Weitere');
+        $weitereText = $locale === 'fr' ? 'Autres' : ($locale === 'it' ? 'Altro' : 'Weitere');
 
         $value = isset($otherOptionValues[$key]) ? trim((string) $otherOptionValues[$key]) : '';
         if ($value === '') {

@@ -796,7 +796,7 @@
             },
             async exportAll() {
                 try {
-                    const response = await fetch('/api/v1/financial-supports/export-all-zip', {
+                    const response = await fetch('/api/v1/financial-supports/export-all.zip', {
                         method: 'GET',
                         headers: {
                             'Accept': 'application/zip',

@@ -199,8 +199,7 @@ class ApiFinancialSupportsController extends AbstractController
         return $this->json($result);
     }
     
-    #[Route(path: '/export-all-zip', name: 'export_all_zip', methods: ['GET'])]
-    #[IsGranted('ROLE_EDITOR')]
+    #[Route(path: '/export-all.zip', name: 'export_all_zip', methods: ['GET'])]
     #[OA\Response(
         response: 200,
         description: 'Returns a ZIP file containing all financial supports',

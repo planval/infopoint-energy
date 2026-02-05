@@ -366,6 +366,43 @@
                 </div>
 
                 <div class="row">
+                    <div class="col-md-8">
+                        <label v-if="locale === 'de'">{{ $t('Mehr Informationen') }}</label>
+                        <label v-else>{{ $t('Mehr Informationen') }} (Übersetzung {{ locale.toUpperCase() }})</label>
+                        <draggable 
+                            v-model="currentExamples" 
+                            item-key="index" 
+                            handle=".drag-handle"
+                            class="draggable-examples">
+                            <template #item="{ element: example, index }">
+                                <div class="row draggable-item">
+                                    <div class="col-md-1">
+                                        <div class="drag-handle">
+                                            <span class="material-icons">drag_indicator</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="text" class="form-control" v-model="example.label" placeholder="Bezeichnung">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="text" class="form-control" v-model="example.value" placeholder="URL">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <button class="button error" @click="clickRemoveExample(index)">Eintrag entfernen</button>
+                                    </div>
+                                </div>
+                            </template>
+                        </draggable>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-8">
+                        <button class="button success" @click="clickAddExample()">Eintrag hinzufügen</button>
+                    </div>
+                </div>
+
+                <div class="row">
                     <div class="col-md-3">
                         <label for="startDate">Laufzeit (Start)</label>
                         <date-picker mode="date" :is24hr="true" v-model="financialSupport.startDate" :locale="'de'">
@@ -485,6 +522,7 @@ export default {
                 endDate: null,
                 assignment: '',
                 links: [],
+                examples: [],
                 logo: null,
                 fundingProvider: '',
                 beneficiaries: [],
@@ -512,6 +550,7 @@ export default {
                         res: '',
                         assignment: '',
                         links: [],
+                        examples: [],
                         logo: null,
                         contacts: [],
                         appointments: [],
@@ -534,6 +573,7 @@ export default {
                         res: '',
                         assignment: '',
                         links: [],
+                        examples: [],
                         logo: null,
                         contacts: [],
                         appointments: [],
@@ -647,6 +687,24 @@ export default {
                         this.financialSupport.translations[this.locale] = {};
                     }
                     this.financialSupport.translations[this.locale].links = value;
+                }
+            }
+        },
+        currentExamples: {
+            get() {
+                if (this.locale === 'de') {
+                    return this.financialSupport.examples || [];
+                }
+                return (this.financialSupport.translations[this.locale] || {}).examples || [];
+            },
+            set(value) {
+                if (this.locale === 'de') {
+                    this.financialSupport.examples = value;
+                } else {
+                    if (!this.financialSupport.translations[this.locale]) {
+                        this.financialSupport.translations[this.locale] = {};
+                    }
+                    this.financialSupport.translations[this.locale].examples = value;
                 }
             }
         },
@@ -832,6 +890,15 @@ export default {
         clickRemoveLink(index) {
             let link = (this.locale === 'de' ? this.financialSupport.links : this.financialSupport.translations[this.locale].links).splice(index, 1)[0];
         },
+        clickAddExample() {
+            (this.locale === 'de' ? this.financialSupport.examples : this.financialSupport.translations[this.locale].examples).push({
+                value: '',
+                label: '',
+            });
+        },
+        clickRemoveExample(index) {
+            let example = (this.locale === 'de' ? this.financialSupport.examples : this.financialSupport.translations[this.locale].examples).splice(index, 1)[0];
+        },
         clickAddContact() {
             (this.locale === 'de' ? this.financialSupport.contacts : this.financialSupport.translations[this.locale].contacts).push({
                 type: 'person',
@@ -912,7 +979,7 @@ export default {
 </script>
 
 <style scoped>
-.draggable-links {
+.draggable-links, .draggable-examples {
     margin-bottom: 10px;
 }
 

@@ -92,6 +92,12 @@
                     {{ additionalInfo|raw }}
                 {% endif %}
 
+                {% set financingRatio = pv_trans(financialSupport, 'financingRatio', app.request.locale) %}
+                {% if financingRatio|trim is not empty %}
+                    <h2>{{ translations['Finanzierung'] is defined ? translations['Finanzierung'] : ('Finanzierung' | trans) }}</h2>
+                    {{ financingRatio|raw }}
+                {% endif %}
+
                 {% set inclusionCriteria = pv_trans(financialSupport, 'inclusionCriteria', app.request.locale) %}
                 {% if inclusionCriteria|trim is not empty %}
                     <h2>{{ translations['Teilnahmekriterien'] is defined ? translations['Teilnahmekriterien'] : ('Teilnahmekriterien' | trans) }}</h2>
@@ -114,12 +120,6 @@
                 {% if applicationTips|trim is not empty %}
                     <h2>{{ translations['Tipps zur Beantragung'] is defined ? translations['Tipps zur Beantragung'] : ('Tipps zur Beantragung' |trans) }}</h2>
                     {{ applicationTips|raw }}
-                {% endif %}
-
-                {% set financingRatio = pv_trans(financialSupport, 'financingRatio', app.request.locale) %}
-                {% if financingRatio|trim is not empty %}
-                    <h2>{{ translations['Finanzierung'] is defined ? translations['Finanzierung'] : ('Finanzierung' | trans) }}</h2>
-                    {{ financingRatio|raw }}
                 {% endif %}
 
                 {% set contacts = pv_trans(financialSupport, 'contacts', app.request.locale)|default([]) %}
@@ -204,6 +204,23 @@
                             {% endif %}
                             <div class="list-item">
                                 {{ link.label }}<br>
+                                <a href="{{ url }}" target="_blank">{{ url }}</a>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                {% set examples = pv_trans(financialSupport, 'examples', app.request.locale)|default([]) %}
+                {% if examples is not empty %}
+                    <h2>{{ translations['Projektbeispiele'] is defined ? translations['Projektbeispiele'] : ('Projektbeispiele' |trans) }}</h2>
+                    <div class="list">
+                        {% for example in examples %}
+                            {% set url = example.value|default('')|trim %}
+                            {% if not (url|lower starts with 'http') %}
+                                {% set url = 'https://' ~ url %}
+                            {% endif %}
+                            <div class="list-item">
+                                {{ example.label }}<br>
                                 <a href="{{ url }}" target="_blank">{{ url }}</a>
                             </div>
                         {% endfor %}

@@ -108,6 +108,17 @@ class FinancialSupport
     ))]
     private $links = [];
 
+    #[ORM\Column(name: 'examples', type: 'json')]
+    #[Groups(['financial_support'])]
+    #[OA\Property(type: 'array', items: new OA\Items(
+        properties: [
+            new OA\Property(property: 'value', type: 'string'),
+            new OA\Property(property: 'label', type: 'string'),
+        ],
+        type: 'object'
+    ))]
+    private $examples = [];
+
     #[ORM\Column(name: 'contacts', type: 'json')]
     #[Groups(['financial_support'])]
     #[OA\Property(type: 'array', items: new OA\Items(
@@ -679,6 +690,30 @@ class FinancialSupport
     public function getLinks()
     {
         return $this->links;
+    }
+
+    /**
+     * Set examples
+     *
+     * @param array $examples
+     *
+     * @return FinancialSupport
+     */
+    public function setExamples($examples)
+    {
+        $this->examples = $examples;
+
+        return $this;
+    }
+
+    /**
+     * Get examples
+     *
+     * @return array
+     */
+    public function getExamples()
+    {
+        return $this->examples;
     }
 
     /**

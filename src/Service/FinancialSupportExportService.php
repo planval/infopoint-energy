@@ -778,7 +778,7 @@ class FinancialSupportExportService
                 $translations = [];
                 $transFiles = [
                     'Kurzbeschrieb', 'Teilnahmekriterien', 'Ausschlusskriterien', 'Finanzierung', 'Beantragung',
-                    'Tipps zur Beantragung', 'Kontakt', 'Mehr Informationen', 'Termine', 'Laufzeit', 'Thema', 'Zuteilung',
+                    'Tipps zur Beantragung', 'Kontakt', 'Mehr Informationen', 'Projektbeispiele', 'Termine', 'Laufzeit', 'Thema', 'Zuteilung',
                     'Start', 'Ende', 'Zuteilung', 'Förderstelle', 'Unterstützungsform',
                     'Begünstigte', 'Themenschwerpunkt', 'Innovationsphasen', 'Fördergebiet'
                 ];
@@ -1006,6 +1006,23 @@ class FinancialSupportExportService
                         );
                     }
                 }
+                
+                // Format examples for projektbeispiele
+                $projektbeispiele = [];
+                $examplesList = isset($financialSupport->getTranslations()[$locale]['examples']) ? 
+                    $financialSupport->getTranslations()[$locale]['examples'] : 
+                    ($locale === 'de' ? $financialSupport->getExamples() : []);
+                
+                foreach ($examplesList ?? [] as $example) {
+                    if (!empty($example['value']) && !empty($example['label'])) {
+                        $projektbeispiele[] = sprintf(
+                            '<a href="%s" target="_blank" class="contLinks liZusinf" title="%s" target="_blank">%s</a>',
+                            'https://'.$this->normalizeUrl($example['value']),
+                            htmlspecialchars($example['label']),
+                            htmlspecialchars($example['label'])
+                        );
+                    }
+                }
 
                 // Convert HTML lists to bullet points with • symbol
                 $convertHtmlListToBullets = function($html) {
@@ -1079,6 +1096,7 @@ class FinancialSupportExportService
                     'termine' => implode('<br>', $appointments),
                     'terminetxt' => implode('<br>', $appointmentTexts),
                     'mehrinfos' => implode('<br>', $mehrinfos),
+                    'projektbeispiele' => implode('<br>', $projektbeispiele),
                     'zuteilung' => $assignment
                 ];
 
@@ -1569,6 +1587,7 @@ class FinancialSupportExportService
                 'termine' => $this->formatAppointmentsAsString($financialSupport, $locale),
                 'terminetxt' => '', // Empty as in original format
                 'mehrinfos' => $this->formatLinksAsString($financialSupport, $locale),
+                'projektbeispiele' => $this->formatExamplesAsString($financialSupport, $locale),
                 'zuteilung' => $assignment,
             ];
             
@@ -1759,6 +1778,28 @@ class FinancialSupportExportService
         }
         
         return implode('<br>', $linkStrings);
+    }
+
+    /**
+     * Format examples as string in the original format
+     */
+    private function formatExamplesAsString(FinancialSupport $financialSupport, string $locale): string
+    {
+        $examples = PvTrans::translate($financialSupport, 'examples', $locale) ?: [];
+        
+        if (empty($examples)) {
+            return '';
+        }
+        
+        $exampleStrings = [];
+        
+        foreach ($examples as $example) {
+            if (!empty($example['value']) && !empty($example['label'])) {
+                $exampleStrings[] = '<a href="https://' . $this->normalizeUrl($example['value']) . '" target="_blank" class="contLinks" title="' . htmlspecialchars($example['label']) . '">' . htmlspecialchars($example['label']) . '</a>';
+            }
+        }
+        
+        return implode('<br>', $exampleStrings);
     }
 
     /**

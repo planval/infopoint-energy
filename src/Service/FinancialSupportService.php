@@ -61,6 +61,7 @@ class FinancialSupportService {
             'instruments',
             'geographicRegions',
             'links',
+            'examples',
             'contacts',
             'logo',
             'translations',
@@ -193,6 +194,7 @@ class FinancialSupportService {
             ->setStartDate($payload['startDate'] ? new \DateTime(date('Y-m-d H:i:s', strtotime($payload['startDate']))) : null)
             ->setEndDate($payload['endDate'] ? new \DateTime(date('Y-m-d H:i:s', strtotime($payload['endDate']))) : null)
             ->setLinks($payload['links'] ?: [])
+            ->setExamples($payload['examples'] ?: [])
             ->setContacts($payload['contacts'] ?: [])
             ->setAuthorities(new ArrayCollection())
             ->setStates(new ArrayCollection())

@@ -367,8 +367,8 @@
 
                 <div class="row">
                     <div class="col-md-8">
-                        <label v-if="locale === 'de'">{{ $t('Mehr Informationen') }}</label>
-                        <label v-else>{{ $t('Mehr Informationen') }} (Übersetzung {{ locale.toUpperCase() }})</label>
+                        <label v-if="locale === 'de'">{{ $t('Projektbeispiele') }}</label>
+                        <label v-else>{{ $t('Projektbeispiele') }} (Übersetzung {{ locale.toUpperCase() }})</label>
                         <draggable 
                             v-model="currentExamples" 
                             item-key="index" 

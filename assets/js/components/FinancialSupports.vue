@@ -419,6 +419,7 @@
             }),
             ...mapGetters({
                 isLoading: 'loaders/isLoading',
+                hasRole: 'users/hasRole',
                 getAuthorityById: 'authorities/getById',
                 getBeneficiaryById: 'beneficiaries/getById',
                 getTopicById: 'topics/getById',
@@ -840,7 +841,7 @@
                 this.publishStatus = null;
                 
                 try {
-                    const response = await fetch('/api/v1/financial-supports/publish', {
+                    const response = await fetch(this.hasRole('ROLE_SUPER_ADMIN') ? '/api/v1/financial-supports/deploy' : '/api/v1/financial-supports/publish', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

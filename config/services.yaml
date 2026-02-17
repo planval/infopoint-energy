@@ -14,6 +14,8 @@ parameters:
     node_js: '%env(NODE_JS)%'
     ftp_deployment_staging: '%env(FTP_DEPLOYMENT_STAGING)%'
     ftp_deployment_production: '%env(FTP_DEPLOYMENT_PRODUCTION)%'
+    deployment_staging: '%env(DEPLOYMENT_STAGING)%'
+    deployment_production: '%env(DEPLOYMENT_PRODUCTION)%'
 
 services:
     # default configuration for services in *this* file

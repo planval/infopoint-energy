@@ -551,7 +551,7 @@ class ApiFinancialSupportsController extends AbstractController
     #[OA\Tag(name: 'Financial Supports')]
     #[Security(name: 'cookieAuth')]
     public function publish(
-        Request $request, 
+        Request $request,
         FinancialSupportExportService $exportService,
         FtpService $ftpService,
         EntityManagerInterface $em
@@ -569,7 +569,7 @@ class ApiFinancialSupportsController extends AbstractController
                     'error' => 'Invalid environment specified. Valid values are "production" or "staging".'
                 ], 400);
             }
-            
+
             // Generate files for direct FTP upload
             $fileData = $exportService->generateFilesForFtp();
             
@@ -666,6 +666,135 @@ class ApiFinancialSupportsController extends AbstractController
             return $this->json([
                 'success' => false,
                 'error' => 'Error during publish operation: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    #[Route(path: '/deploy', name: 'deploy', methods: ['POST'])]
+    #[IsGranted('ROLE_EDITOR')]
+    #[OA\RequestBody(
+        description: 'Environment to deploy to',
+        content: new OA\JsonContent(
+            properties: [
+                new OA\Property(property: 'environment', type: 'string', enum: ['production', 'staging'])
+            ]
+        )
+    )]
+    #[OA\Response(
+        response: 200,
+        description: 'Result of publishing operation',
+        content: new OA\JsonContent(
+            properties: [
+                new OA\Property(property: 'success', type: 'boolean'),
+                new OA\Property(property: 'message', type: 'string')
+            ]
+        )
+    )]
+    #[OA\Tag(name: 'Financial Supports')]
+    #[Security(name: 'cookieAuth')]
+    public function deploy(
+        Request $request,
+        FinancialSupportExportService $exportService,
+        DeployService $deployService,
+        EntityManagerInterface $em
+    ): JsonResponse
+    {
+        try {
+            // Get the environment from the request body
+            $data = json_decode($request->getContent(), true);
+            $environment = $data['environment'] ?? 'staging';
+
+            // Validate environment
+            if (!in_array($environment, ['production', 'staging'])) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Invalid environment specified. Valid values are "production" or "staging".'
+                ], 400);
+            }
+
+            $result = $deployService->deploy(
+                $environment
+            );
+
+            if (!$result['success']) {
+                return $this->json([
+                    'success' => false,
+                    'error' => $result['error'] ?? $result['message'] ?? 'Upload failed'
+                ], 500);
+            }
+
+            // Check for draft items that were previously published in this environment and mark them as unpublished
+            $allFinancialSupports = $em->getRepository(FinancialSupport::class)->findAll();
+            foreach ($allFinancialSupports as $fs) {
+                if (!$fs->getIsPublic()) {
+                    // Check if this specific draft item was previously published in this environment
+                    $previousPublicationLog = $em->createQueryBuilder()
+                        ->select('l')
+                        ->from(Log::class, 'l')
+                        ->where('l.context = :context')
+                        ->andWhere('l.category = :environment')
+                        ->andWhere('l.action = :action')
+                        ->andWhere('l.value LIKE :fsId')
+                        ->setParameter('context', 'financial_support_publish')
+                        ->setParameter('environment', $environment)
+                        ->setParameter('action', 'publish')
+                        ->setParameter('fsId', '% ID: ' . $fs->getId() . ' %')
+                        ->orderBy('l.createdAt', 'DESC')
+                        ->setMaxResults(1)
+                        ->getQuery()
+                        ->getOneOrNullResult();
+
+                    if ($previousPublicationLog) {
+                        // Create unpublish log entry for this specific draft item
+                        $unpublishLog = new Log();
+                        $unpublishLog->setCreatedAt(new \DateTime());
+                        $unpublishLog->setContext('financial_support_publish');
+                        $unpublishLog->setCategory($environment);
+                        $unpublishLog->setAction('unpublish');
+                        $unpublishLog->setValue('Financial support unpublished due to draft status - ID: ' . $fs->getId() . ' - Name: ' . $fs->getName());
+                        $unpublishLog->setUsername($this->getUser() ? $this->getUser()->getUserIdentifier() : 'system');
+
+                        $em->persist($unpublishLog);
+                    }
+                }
+            }
+
+            // Create log entries for each published financial support
+            $publishedFinancialSupports = $em->getRepository(FinancialSupport::class)->findBy(['isPublic' => true]);
+            foreach ($publishedFinancialSupports as $fs) {
+                $log = new Log();
+                $log->setCreatedAt(new \DateTime());
+                $log->setContext('financial_support_publish');
+                $log->setCategory($environment);
+                $log->setAction('publish');
+                $log->setValue('Financial support published - ID: ' . $fs->getId() . ' - Name: ' . $fs->getName());
+                $log->setUsername($this->getUser() ? $this->getUser()->getUserIdentifier() : 'system');
+
+                $em->persist($log);
+            }
+
+            // Create general log entry for successful publication
+            $generalLog = new Log();
+            $generalLog->setCreatedAt(new \DateTime());
+            $generalLog->setContext('financial_support_publish');
+            $generalLog->setCategory($environment);
+            $generalLog->setAction('publish_summary');
+            $generalLog->setValue('Deployed ' . count($publishedFinancialSupports) . ' financial supports to ' . $environment);
+            $generalLog->setUsername($this->getUser() ? $this->getUser()->getUserIdentifier() : 'system');
+
+            $em->persist($generalLog);
+            $em->flush();
+
+            return $this->json([
+                'success' => true,
+                'message' => $result['message'] ?? 'Deployment completed',
+                'result' => $result,
+            ]);
+
+        } catch (\Throwable $e) {
+            return $this->json([
+                'success' => false,
+                'error' => 'Error during deploy operation: ' . $e->getMessage()
             ], 500);
         }
     }

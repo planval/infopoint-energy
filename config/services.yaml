@@ -55,3 +55,7 @@ services:
         arguments:
             $params: '@parameter_bag'
 
+    App\Service\DeployService:
+        arguments:
+            $params: '@parameter_bag'
+

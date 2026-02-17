@@ -11,16 +11,14 @@ class DeployService
 {
     private LoggerInterface $logger;
     private array $configs;
+    private ParameterBagInterface $params;
     private \GuzzleHttp\Client $httpClient;
     private FinancialSupportExportService $financialSupportExportService;
 
     public function __construct(ParameterBagInterface $params, LoggerInterface $logger, FinancialSupportExportService $financialSupportExportService)
     {
         $this->logger = $logger;
-        $this->configs = [
-            'staging' => $this->parseDeploymentUrl($params->get('deployment_staging')),
-            'production' => $this->parseDeploymentUrl($params->get('deployment_production')),
-        ];
+        $this->params = $params;
         $this->httpClient = new \GuzzleHttp\Client();
         $this->financialSupportExportService = $financialSupportExportService;
     }
@@ -29,8 +27,8 @@ class DeployService
     {
         $parts = parse_url($url);
 
-        if (!$parts || !isset($parts['host'], $parts['user'], $parts['pass'])) {
-            throw new \InvalidArgumentException("Invalid URL format: {$url}");
+        if (!$parts || !isset($parts['host'])) {
+            throw new \InvalidArgumentException("Invalid URL format");
         }
 
         parse_str($parts['query'] ?? '', $params);
@@ -51,7 +49,7 @@ class DeployService
     public function deploy(string $environment): array
     {
 
-        $cfg = $this->configs[$environment] ?? null;
+        $cfg = $this->parseDeploymentUrl($this->params->get('deployment_'.$environment)) ?? null;
         if (!$cfg) return ['success' => false, 'error' => "Missing config for {$environment}"];
 
         try {
@@ -64,9 +62,9 @@ class DeployService
 
             $formData = new FormDataPart($formFields);
 
-            $response = $this->httpClient->request('POST', $this->configs[$environment]['scheme'].'://'.$this->configs[$environment]['host'], [
+            $response = $this->httpClient->request('POST', $cfg['scheme'].'://'.$cfg['host'], [
                 'headers' => [
-                    'X-PSK' => $this->configs[$environment]['params']['psk'] ?? null,
+                    'X-PSK' => $cfg['params']['psk'] ?? null,
                     ...$formData->getPreparedHeaders()->toArray(),
                 ],
                 'body' => $formData->bodyToIterable(),

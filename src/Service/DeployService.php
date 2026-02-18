@@ -56,7 +56,7 @@ class DeployService
 
             $zipFilePath = $this->financialSupportExportService->exportAllToZip();
 
-            $response = $this->httpClient->request('POST', $cfg['scheme'].'://'.$cfg['host'].'/' . ltrim($cfg['base_path'], '/'), [
+            $response = $this->httpClient->request('POST', $cfg['scheme'] . '://'.$cfg['host'] . '/' . ltrim($cfg['base_path'], '/') . '/upload', [
                 'headers' => [
                     'X-PSK' => $cfg['params']['psk'] ?? '',
                 ],
@@ -79,15 +79,42 @@ class DeployService
                 throw new \Exception('Deployment failed');
             }
 
+            $response = $this->httpClient->request('GET', $cfg['scheme'] . '://'.$cfg['host'] . '/' . ltrim($cfg['base_path'], '/') . '/logs/latest', [
+                'headers' => [
+                    'X-PSK' => $cfg['params']['psk'] ?? '',
+                ],
+            ]);
+
+            $logStatusCode = $response->getStatusCode();
+            $logContent = (string) $response->getBody();
+
+            if($logStatusCode !== 200) {
+                throw new \Exception('Fetching logs failed');
+            }
+
         } catch (\Throwable $exception) {
-            return ['success' => false, 'message' => $exception->getMessage(), 'statusCode' => $statusCode ?? null, 'content' => $content ?? null];
+            return [
+                'success' => false,
+                'message' => $exception->getMessage(),
+                'statusCode' => $statusCode ?? null,
+                'content' => $content ?? null,
+                'logStatusCode' => $logStatusCode ?? null,
+                'logContent' => $logContent ?? null
+            ];
         } finally {
             if($zipFilePath ?? null && str_starts_with($zipFilePath, '/') && str_ends_with($zipFilePath, '.zip') && is_file($zipFilePath)) {
                 @unlink($zipFilePath);
             }
         }
 
-        return ['success' => true, 'message' => 'Deployment completed', 'statusCode' => $statusCode, 'content' => $content];
+        return [
+            'success' => true,
+            'message' => 'Deployment completed',
+            'statusCode' => $statusCode,
+            'content' => $content,
+            'logStatusCode' => $logStatusCode,
+            'logContent' => $logContent
+        ];
 
     }
 

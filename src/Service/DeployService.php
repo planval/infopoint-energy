@@ -36,7 +36,7 @@ class DeployService
         return [
             'scheme' => strtolower($parts['scheme'] ?? 'https'),
             'host' => $parts['host'],
-            'port' => $parts['port'] ?? 21,
+            'port' => $parts['port'] ?? 443,
             'username' => urldecode($parts['user'] ?? ''),
             'password' => urldecode($parts['pass'] ?? ''),
             'base_path' => rtrim($parts['path'] ?? '', '/'),
@@ -62,7 +62,7 @@ class DeployService
 
             $formData = new FormDataPart($formFields);
 
-            $response = $this->httpClient->request('POST', $cfg['scheme'].'://'.$cfg['host'], [
+            $response = $this->httpClient->request('POST', $cfg['scheme'].'://'.$cfg['host'].'/' . ltrim($cfg['base_path'], '/'), [
                 'headers' => [
                     'X-PSK' => $cfg['params']['psk'] ?? null,
                     ...$formData->getPreparedHeaders()->toArray(),

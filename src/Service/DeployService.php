@@ -56,22 +56,24 @@ class DeployService
 
             $zipFilePath = $this->financialSupportExportService->exportAllToZip();
 
-            $formFields = [
-                'zip' => DataPart::fromPath($zipFilePath),
-            ];
-
-            $formData = new FormDataPart($formFields);
-
             $response = $this->httpClient->request('POST', $cfg['scheme'].'://'.$cfg['host'].'/' . ltrim($cfg['base_path'], '/'), [
                 'headers' => [
-                    'X-PSK' => $cfg['params']['psk'] ?? null,
-                    ...$formData->getPreparedHeaders()->toArray(),
+                    'X-PSK' => $cfg['params']['psk'] ?? '',
                 ],
-                'body' => $formData->bodyToIterable(),
+                'multipart' => [
+                    [
+                        'name'     => 'zip',
+                        'contents' => fopen($zipFilePath, 'r'),
+                        'filename' => basename($zipFilePath),
+                        'headers'  => [
+                            'Content-Type' => 'application/zip',
+                        ],
+                    ],
+                ],
             ]);
 
             $statusCode = $response->getStatusCode();
-            $content = $response->getBody();
+            $content = (string) $response->getBody();
 
             if($statusCode !== 200) {
                 throw new \Exception('Deployment failed');

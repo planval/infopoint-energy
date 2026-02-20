@@ -841,7 +841,7 @@
                 this.publishStatus = null;
                 
                 try {
-                    const response = await fetch(this.hasRole('ROLE_SUPER_ADMIN') ? '/api/v1/financial-supports/deploy' : '/api/v1/financial-supports/publish', {
+                    const response = await fetch('/api/v1/financial-supports/deploy', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
